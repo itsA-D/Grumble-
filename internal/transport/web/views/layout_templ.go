@@ -84,7 +84,7 @@ func Layout(page Page) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\"><link rel=\"stylesheet\" href=\"/static/app.css\"><script src=\"/static/theme-init.js\"></script><script src=\"/static/app.js\" defer></script></head><body class=\"flex min-h-full flex-col bg-canvas font-sans text-ink antialiased\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\"><link rel=\"stylesheet\" href=\"/static/app.css\"><meta name=\"htmx-config\" content='{\"includeIndicatorStyles\":false}'><script src=\"/static/theme-init.js\"></script><script src=\"/static/htmx.min.js\" defer></script><script src=\"/static/app.js\" defer></script></head><body class=\"flex min-h-full flex-col bg-canvas font-sans text-ink antialiased\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

@@ -4,8 +4,27 @@ import (
 	"context"
 	"net"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
+
+// TestContentSecurityPolicyLocksDownInline proves the CSP allows no inline
+// scripts or styles (so HTMX must be configured not to inject any), and only
+// widens for Turnstile when the widget is enabled.
+func TestContentSecurityPolicyLocksDownInline(t *testing.T) {
+	plain := (&Server{deps: Deps{}}).contentSecurityPolicy()
+	if strings.Contains(plain, "unsafe-inline") || strings.Contains(plain, "unsafe-eval") {
+		t.Fatalf("CSP must not allow unsafe-inline/unsafe-eval: %s", plain)
+	}
+	if strings.Contains(plain, "cloudflare") {
+		t.Fatalf("CSP must not allow Cloudflare unless Turnstile is enabled: %s", plain)
+	}
+
+	withTurnstile := (&Server{deps: Deps{TurnstileSiteKey: "site-key"}}).contentSecurityPolicy()
+	if !strings.Contains(withTurnstile, "https://challenges.cloudflare.com") {
+		t.Fatalf("expected Turnstile origin in CSP when enabled: %s", withTurnstile)
+	}
+}
 
 // TestResolveClientAddrTrustsHeaderOnlyFromTrustedPeer proves the client address
 // (and therefore the salted source hash behind the submit rate limit) cannot be

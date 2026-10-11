@@ -15,7 +15,9 @@ templ Layout(page Page) {
 			}
 			<link rel="canonical" href={ page.Meta.Canonical(page.SiteURL) }/>
 			<link rel="stylesheet" href="/static/app.css"/>
+			<meta name="htmx-config" content='{"includeIndicatorStyles":false}'/>
 			<script src="/static/theme-init.js"></script>
+			<script src="/static/htmx.min.js" defer></script>
 			<script src="/static/app.js" defer></script>
 		</head>
 		<body class="flex min-h-full flex-col bg-canvas font-sans text-ink antialiased">

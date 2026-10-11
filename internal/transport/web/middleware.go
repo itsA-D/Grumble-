@@ -129,12 +129,27 @@ func sameHost(raw, host string) bool {
 	return u.Host == host
 }
 
+// contentSecurityPolicy builds the CSP for this deployment. Style and script
+// sources are locked to this origin with no 'unsafe-inline': HTMX is configured
+// via a meta tag to inject no <style>, so the widget needs no inline exemption
+// (fix 4). Cloudflare Turnstile is allowed only when a site key is configured
+// (FR-MOD-7).
+func (s *Server) contentSecurityPolicy() string {
+	script := "script-src 'self'"
+	frame := "frame-src 'self'"
+	if s.deps.TurnstileSiteKey != "" {
+		script += " https://challenges.cloudflare.com"
+		frame += " https://challenges.cloudflare.com"
+	}
+	return "default-src 'self'; base-uri 'self'; form-action 'self'; " +
+		"img-src 'self' data:; style-src 'self'; " + script + "; " + frame + "; " +
+		"connect-src 'self'; frame-ancestors 'none'"
+}
+
 // securityHeaders sets conservative response headers. All scripts are served
 // from this origin, so no inline script or nonce is required.
 func (s *Server) securityHeaders(next http.Handler) http.Handler {
-	const csp = "default-src 'self'; base-uri 'self'; form-action 'self'; " +
-		"img-src 'self' data:; style-src 'self'; script-src 'self'; " +
-		"connect-src 'self'; frame-ancestors 'none'"
+	csp := s.contentSecurityPolicy()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
 		h.Set("Content-Security-Policy", csp)
