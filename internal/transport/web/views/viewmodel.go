@@ -28,6 +28,8 @@ type PainCard struct {
 	CountryCode  string
 	VoteCount    int
 	Urgency      int
+	// Seeded marks labelled demo content so it is never presented as organic.
+	Seeded bool
 }
 
 // FeedPage is the explore feed (FR-FEED-1).

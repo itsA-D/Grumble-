@@ -55,6 +55,9 @@ templ PainCardView(card PainCard) {
 			<a href={ "/country/" + card.CountryCode } class="hover:text-ink">{ card.CountryName }</a>
 			<span>{ countLabel(card.VoteCount, "vote", "votes") }</span>
 			<span>urgency { card.Urgency }</span>
+			if card.Seeded {
+				<span class="rounded border border-edge px-1.5 py-0.5 text-xs uppercase tracking-wide">seed</span>
+			}
 		</div>
 	</article>
 }

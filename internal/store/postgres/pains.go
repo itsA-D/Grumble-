@@ -194,6 +194,43 @@ func (r *Pains) CountByCountry(ctx context.Context, country string) (int, error)
 	return int(n), err
 }
 
+// CreateSeeded inserts a published, labelled seed pain (FR-SUB-8 seed content).
+// Slug conflicts are ignored, so seeding is idempotent; created reports whether
+// a row was inserted.
+func (r *Pains) CreateSeeded(ctx context.Context, in pain.New) (id uuid.UUID, created bool, err error) {
+	id, err = queries.New(handle(ctx, r.pool)).CreateSeededPain(ctx, queries.CreateSeededPainParams{
+		ID:             in.ID,
+		Slug:           in.Slug,
+		Body:           in.Body,
+		Category:       in.Category.Slug,
+		Country:        in.Country.Code,
+		Frequency:      optionalString(string(in.Details.Frequency)),
+		Disruption:     optionalString(string(in.Details.Disruption)),
+		WouldPay:       in.Details.WouldPay,
+		MonthlyAmount:  optionalInt32(in.Details.MonthlyAmount),
+		Tried:          optionalString(in.Details.Tried),
+		SourceHash:     in.SourceHash,
+		ScoringVersion: int32(in.ScoringVersion),
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, false, nil
+	}
+	if err != nil {
+		return uuid.Nil, false, err
+	}
+	return id, true, nil
+}
+
+// AddSeedVotes inserts synthetic votes for a seeded pain and returns how many
+// rows were newly created. ON CONFLICT keeps it idempotent.
+func (r *Pains) AddSeedVotes(ctx context.Context, painID uuid.UUID, voterKeys []string) (int, error) {
+	n, err := queries.New(handle(ctx, r.pool)).InsertSeedVotes(ctx, queries.InsertSeedVotesParams{
+		PainID:  painID,
+		Column2: voterKeys,
+	})
+	return int(n), err
+}
+
 // RecentFromSource reports whether this source submitted a non-seeded pain
 // within the window (dedupe guard, FR-SUB-7/FR-MOD-1). hashes are the identity
 // package's monthly candidate set.

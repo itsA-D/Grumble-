@@ -58,6 +58,7 @@ func painFromTrendingRow(r queries.ListPublishedTrendingCandidatesRow) pain.Pain
 		Status:      pain.Status(r.Status),
 		VoteCount:   int(r.VoteCount),
 		Urgency:     int(r.Urgency),
+		Seeded:      r.Seeded,
 		CreatedAt:   timeOf(r.CreatedAt),
 		PublishedAt: optionalTime(r.PublishedAt),
 	}

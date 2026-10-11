@@ -24,6 +24,7 @@ import (
 	"github.com/OWNER/painboard/internal/service/hubs"
 	"github.com/OWNER/painboard/internal/service/identity"
 	"github.com/OWNER/painboard/internal/service/pains"
+	"github.com/OWNER/painboard/internal/service/seed"
 	"github.com/OWNER/painboard/internal/service/voting"
 	"github.com/OWNER/painboard/internal/store/postgres"
 	"github.com/OWNER/painboard/internal/transport/web"
@@ -141,10 +142,10 @@ func (a *App) Close() {
 	}
 }
 
-// Seed verifies database connectivity and loads labelled seed content. Seed
-// content is added with the first tables (M1).
+// Seed loads the labelled demo content (PRD section 6). Every row is stored
+// published and flagged seeded = true; the run is idempotent.
 func Seed(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 
 	pool, err := db.Open(ctx, dbConfig(cfg))
@@ -153,7 +154,19 @@ func Seed(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 	}
 	defer pool.Close()
 
-	logger.Info("seed: database reachable; seed content is added with the first tables (M1)")
+	newID := func() uuid.UUID {
+		id, err := idgen.New()
+		if err != nil {
+			return uuid.Nil
+		}
+		return id
+	}
+	svc := seed.New(postgres.NewPains(pool), postgres.NewTxManager(pool), newID, seed.DefaultItems())
+	rep, err := svc.Run(ctx)
+	if err != nil {
+		return err
+	}
+	logger.Info("seed complete", "created", rep.Created, "skipped", rep.Skipped, "seeded", true)
 	return nil
 }
 

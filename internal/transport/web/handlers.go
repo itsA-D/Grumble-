@@ -74,6 +74,7 @@ func (s *Server) cardFromPain(p pain.Pain) views.PainCard {
 		CountryCode:  p.Country.Code,
 		VoteCount:    p.VoteCount,
 		Urgency:      p.Urgency,
+		Seeded:       p.Seeded,
 	}
 }
 

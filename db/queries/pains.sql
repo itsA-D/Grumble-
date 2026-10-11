@@ -59,7 +59,7 @@ LIMIT $1 OFFSET $2;
 -- comments_7d arrives with the comments table in M2 and is treated as zero.
 SELECT p.id, p.slug, p.body, p.category, p.country, p.status, p.frequency,
        p.disruption, p.would_pay, p.monthly_amount, p.tried, p.vote_count,
-       p.urgency, p.created_at, p.published_at,
+       p.urgency, p.seeded, p.created_at, p.published_at,
        (SELECT count(*) FROM votes v
          WHERE v.pain_id = p.id
            AND v.created_at >= now() - interval '7 days') AS votes_7d
@@ -93,6 +93,32 @@ SELECT count(*) FROM published_pains WHERE category = $1;
 
 -- name: CountPublishedByCountry :one
 SELECT count(*) FROM published_pains WHERE country = $1;
+
+-- name: CreateSeededPain :one
+-- Inserts a published, labelled seed pain. ON CONFLICT (slug) DO NOTHING makes
+-- seeding idempotent: a rerun inserts nothing and returns no row.
+INSERT INTO pains (
+    id, slug, body, category, country, status,
+    frequency, disruption, would_pay, monthly_amount, tried,
+    source_hash, anon_id, seeded, scoring_version,
+    vote_count, urgency, published_at
+) VALUES (
+    $1, $2, $3, $4, $5, 'published',
+    $6, $7, $8, $9, $10,
+    $11, NULL, TRUE, $12,
+    0, 0, now()
+)
+ON CONFLICT (slug) DO NOTHING
+RETURNING id;
+
+-- name: InsertSeedVotes :execrows
+-- Adds synthetic votes for a seeded pain in one statement; ON CONFLICT keeps it
+-- idempotent. The caller recomputes counters from the real row count, so
+-- vote_count always matches the stored votes.
+INSERT INTO votes (pain_id, voter_key, created_at)
+SELECT $1, k, now()
+FROM unnest($2::text[]) AS k
+ON CONFLICT (pain_id, voter_key) DO NOTHING;
 
 -- name: RecentSubmissionFromSource :one
 -- Moderation: has this source hash submitted (non-seeded) within the window?

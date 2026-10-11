@@ -123,6 +123,59 @@ func (q *Queries) CreatePain(ctx context.Context, arg CreatePainParams) (Pain, e
 	return i, err
 }
 
+const createSeededPain = `-- name: CreateSeededPain :one
+INSERT INTO pains (
+    id, slug, body, category, country, status,
+    frequency, disruption, would_pay, monthly_amount, tried,
+    source_hash, anon_id, seeded, scoring_version,
+    vote_count, urgency, published_at
+) VALUES (
+    $1, $2, $3, $4, $5, 'published',
+    $6, $7, $8, $9, $10,
+    $11, NULL, TRUE, $12,
+    0, 0, now()
+)
+ON CONFLICT (slug) DO NOTHING
+RETURNING id
+`
+
+type CreateSeededPainParams struct {
+	ID             uuid.UUID `json:"id"`
+	Slug           string    `json:"slug"`
+	Body           string    `json:"body"`
+	Category       string    `json:"category"`
+	Country        string    `json:"country"`
+	Frequency      *string   `json:"frequency"`
+	Disruption     *string   `json:"disruption"`
+	WouldPay       bool      `json:"would_pay"`
+	MonthlyAmount  *int32    `json:"monthly_amount"`
+	Tried          *string   `json:"tried"`
+	SourceHash     string    `json:"source_hash"`
+	ScoringVersion int32     `json:"scoring_version"`
+}
+
+// Inserts a published, labelled seed pain. ON CONFLICT (slug) DO NOTHING makes
+// seeding idempotent: a rerun inserts nothing and returns no row.
+func (q *Queries) CreateSeededPain(ctx context.Context, arg CreateSeededPainParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, createSeededPain,
+		arg.ID,
+		arg.Slug,
+		arg.Body,
+		arg.Category,
+		arg.Country,
+		arg.Frequency,
+		arg.Disruption,
+		arg.WouldPay,
+		arg.MonthlyAmount,
+		arg.Tried,
+		arg.SourceHash,
+		arg.ScoringVersion,
+	)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const getPainForVote = `-- name: GetPainForVote :one
 SELECT id, status, vote_count, frequency, disruption, would_pay, monthly_amount
 FROM pains
@@ -184,6 +237,29 @@ func (q *Queries) GetPublishedBySlug(ctx context.Context, slug string) (Publishe
 		&i.PublishedAt,
 	)
 	return i, err
+}
+
+const insertSeedVotes = `-- name: InsertSeedVotes :execrows
+INSERT INTO votes (pain_id, voter_key, created_at)
+SELECT $1, k, now()
+FROM unnest($2::text[]) AS k
+ON CONFLICT (pain_id, voter_key) DO NOTHING
+`
+
+type InsertSeedVotesParams struct {
+	PainID  uuid.UUID `json:"pain_id"`
+	Column2 []string  `json:"column_2"`
+}
+
+// Adds synthetic votes for a seeded pain in one statement; ON CONFLICT keeps it
+// idempotent. The caller recomputes counters from the real row count, so
+// vote_count always matches the stored votes.
+func (q *Queries) InsertSeedVotes(ctx context.Context, arg InsertSeedVotesParams) (int64, error) {
+	result, err := q.db.Exec(ctx, insertSeedVotes, arg.PainID, arg.Column2)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const listPublishedByCategory = `-- name: ListPublishedByCategory :many
@@ -389,7 +465,7 @@ func (q *Queries) ListPublishedTopVotes(ctx context.Context, arg ListPublishedTo
 const listPublishedTrendingCandidates = `-- name: ListPublishedTrendingCandidates :many
 SELECT p.id, p.slug, p.body, p.category, p.country, p.status, p.frequency,
        p.disruption, p.would_pay, p.monthly_amount, p.tried, p.vote_count,
-       p.urgency, p.created_at, p.published_at,
+       p.urgency, p.seeded, p.created_at, p.published_at,
        (SELECT count(*) FROM votes v
          WHERE v.pain_id = p.id
            AND v.created_at >= now() - interval '7 days') AS votes_7d
@@ -412,6 +488,7 @@ type ListPublishedTrendingCandidatesRow struct {
 	Tried         *string            `json:"tried"`
 	VoteCount     int32              `json:"vote_count"`
 	Urgency       int32              `json:"urgency"`
+	Seeded        bool               `json:"seeded"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	PublishedAt   pgtype.Timestamptz `json:"published_at"`
 	Votes7d       int64              `json:"votes_7d"`
@@ -443,6 +520,7 @@ func (q *Queries) ListPublishedTrendingCandidates(ctx context.Context, limit int
 			&i.Tried,
 			&i.VoteCount,
 			&i.Urgency,
+			&i.Seeded,
 			&i.CreatedAt,
 			&i.PublishedAt,
 			&i.Votes7d,
