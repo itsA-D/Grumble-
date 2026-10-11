@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # --- Build stage: generate code/assets and compile a static binary -----------
-FROM golang:1.26.4-bookworm AS build
+FROM golang:1.26.9-bookworm AS build
 WORKDIR /src
 
 # Cache module downloads before copying the rest of the source.
