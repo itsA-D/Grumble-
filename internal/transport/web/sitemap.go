@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OWNER/painboard/internal/domain/taxonomy"
-	"github.com/OWNER/painboard/internal/service/hubs"
+	"grumble/internal/domain/taxonomy"
+	"grumble/internal/service/hubs"
 )
 
 // sitemapPains bounds how many recent pains the sitemap lists. Phase 2 can page

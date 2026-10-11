@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/OWNER/painboard/internal/domain"
+	"grumble/internal/domain"
 )
 
 // errorStatus maps a domain error to an HTTP status. It is the one place that

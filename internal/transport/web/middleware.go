@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/OWNER/painboard/internal/domain"
+	"grumble/internal/domain"
 )
 
 type clientAddrKey struct{}
@@ -45,7 +45,7 @@ func VoterKey(ctx context.Context) string {
 }
 
 // anonCookieName is the httpOnly cookie carrying the signed anonymous id.
-const anonCookieName = "pb_aid"
+const anonCookieName = "grumble_aid"
 
 // anonCookieMaxAge matches identity.AnonIDMaxAge (90 days).
 const anonCookieMaxAge = 90 * 24 * time.Hour

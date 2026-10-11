@@ -31,7 +31,7 @@ export default defineConfig({
       PRODUCT_NAME: 'Grumble',
       DATABASE_URL:
         process.env.DATABASE_URL ??
-        'postgres://painboard:painboard@localhost:5433/painboard?sslmode=disable',
+        'postgres://grumble:grumble@localhost:5433/grumble?sslmode=disable',
       ANON_ID_SECRET: 'dev-anon-secret-change-me-0000',
       IP_HASH_SALT: 'dev-ip-hash-salt-change-me0000',
     },

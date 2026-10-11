@@ -7,7 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/OWNER/painboard/internal/store/postgres/queries"
+	"grumble/internal/store/postgres/queries"
 )
 
 // errTxAlreadyOpen guards against nested units of work, which are always bugs.

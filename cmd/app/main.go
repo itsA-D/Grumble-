@@ -1,4 +1,4 @@
-// Command app is the single PainBoard binary. It runs one of four subcommands:
+// Command app is the single Grumble binary. It runs one of four subcommands:
 // serve (web and API), worker (background jobs), migrate (apply migrations)
 // and seed (load labelled seed content and local fixtures).
 package main
@@ -15,10 +15,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/OWNER/painboard/internal/app"
-	"github.com/OWNER/painboard/internal/platform/config"
-	"github.com/OWNER/painboard/internal/platform/logging"
-	"github.com/OWNER/painboard/internal/store/postgres"
+	"grumble/internal/app"
+	"grumble/internal/platform/config"
+	"grumble/internal/platform/logging"
+	"grumble/internal/store/postgres"
 )
 
 func main() {
@@ -57,7 +57,7 @@ func run(args []string) error {
 }
 
 func usage() {
-	fmt.Fprint(os.Stderr, `PainBoard
+	fmt.Fprint(os.Stderr, `Grumble
 
 Usage:
   app serve        run the web server

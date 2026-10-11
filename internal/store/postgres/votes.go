@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/OWNER/painboard/internal/store/postgres/queries"
+	"grumble/internal/store/postgres/queries"
 )
 
 // Votes is the repository behind anonymous voting (FR-VOTE-1/2). A vote is a

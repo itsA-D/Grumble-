@@ -7,11 +7,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/OWNER/painboard/internal/domain/pain"
-	"github.com/OWNER/painboard/internal/domain/taxonomy"
-	"github.com/OWNER/painboard/internal/service/pains"
-	"github.com/OWNER/painboard/internal/transport/web/seo"
-	"github.com/OWNER/painboard/internal/transport/web/views"
+	"grumble/internal/domain/pain"
+	"grumble/internal/domain/taxonomy"
+	"grumble/internal/service/pains"
+	"grumble/internal/transport/web/seo"
+	"grumble/internal/transport/web/views"
 )
 
 func (s *Server) handleSubmitForm(w http.ResponseWriter, r *http.Request) {

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/OWNER/painboard/internal/domain"
-	"github.com/OWNER/painboard/internal/domain/pain"
+	"grumble/internal/domain"
+	"grumble/internal/domain/pain"
 )
 
 type fakeStore struct {

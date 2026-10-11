@@ -1,4 +1,4 @@
-module github.com/OWNER/painboard
+module grumble
 
 go 1.26.9
 

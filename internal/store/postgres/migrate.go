@@ -11,7 +11,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
-	"github.com/OWNER/painboard/db/migrations"
+	"grumble/db/migrations"
 )
 
 // Migrate applies all pending migrations on a direct, non-pooled connection

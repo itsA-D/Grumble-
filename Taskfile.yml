@@ -5,7 +5,7 @@ version: '3'
 
 vars:
   BIN: bin/app
-  DB_URL: '{{.DATABASE_URL | default "postgres://painboard:painboard@localhost:5433/painboard?sslmode=disable"}}'
+  DB_URL: '{{.DATABASE_URL | default "postgres://grumble:grumble@localhost:5433/grumble?sslmode=disable"}}'
   TW: '{{.TW_CMD | default "go run ./scripts/tw"}}'
   # Dev-only identity secrets so local commands pass config validation. Never
   # used in production; override by exporting the real values.

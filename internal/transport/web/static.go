@@ -4,7 +4,7 @@ import (
 	"io/fs"
 	"net/http"
 
-	webassets "github.com/OWNER/painboard/web"
+	webassets "grumble/web"
 )
 
 // staticHandler serves the embedded assets under /static/.

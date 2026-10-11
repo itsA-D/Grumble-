@@ -5,9 +5,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/OWNER/painboard/internal/domain/pain"
-	"github.com/OWNER/painboard/internal/domain/taxonomy"
-	"github.com/OWNER/painboard/internal/store/postgres/queries"
+	"grumble/internal/domain/pain"
+	"grumble/internal/domain/taxonomy"
+	"grumble/internal/store/postgres/queries"
 )
 
 // The published_pains view yields one shared row shape (query.PublishedPain),

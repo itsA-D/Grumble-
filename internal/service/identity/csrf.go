@@ -7,7 +7,7 @@ import (
 
 // csrfPrefix separates the CSRF token domain from the anon-id domain so a
 // signature from one can never be replayed as the other.
-const csrfPrefix = "painboard.csrf."
+const csrfPrefix = "grumble.csrf."
 
 // CSRFToken derives a per-identity synchronizer token. It is bound to the
 // anonymous id carried by the signed, httpOnly cookie, so a cross-site page

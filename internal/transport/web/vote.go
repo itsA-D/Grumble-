@@ -7,9 +7,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"github.com/OWNER/painboard/internal/domain"
-	"github.com/OWNER/painboard/internal/service/voting"
-	"github.com/OWNER/painboard/internal/transport/web/views"
+	"grumble/internal/domain"
+	"grumble/internal/service/voting"
+	"grumble/internal/transport/web/views"
 )
 
 func (s *Server) handleVote(w http.ResponseWriter, r *http.Request) {

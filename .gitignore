@@ -25,6 +25,9 @@ coverage.html
 /test-results/
 /playwright-report/
 
+# Local tool state that may contain credentials
+/.jetro/
+
 # OS and editor
 .DS_Store
 Thumbs.db

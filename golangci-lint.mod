@@ -1,4 +1,4 @@
-module github.com/OWNER/painboard/golangci-lint
+module grumble/golangci-lint
 
 go 1.26.4
 

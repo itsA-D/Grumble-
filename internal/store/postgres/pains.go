@@ -10,9 +10,9 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/OWNER/painboard/internal/domain"
-	"github.com/OWNER/painboard/internal/domain/pain"
-	"github.com/OWNER/painboard/internal/store/postgres/queries"
+	"grumble/internal/domain"
+	"grumble/internal/domain/pain"
+	"grumble/internal/store/postgres/queries"
 )
 
 // Pains is the repository behind every pain read and write. Public reads go

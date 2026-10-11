@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/OWNER/painboard/internal/domain/taxonomy"
+	"grumble/internal/domain/taxonomy"
 )
 
 // Body length limits (PRD FR-SUB-1) and the "what was tried" limit (FR-SUB-5).

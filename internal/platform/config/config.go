@@ -166,7 +166,7 @@ func load(lookup lookupFunc) (Config, error) {
 
 	cfg := Config{
 		Env:         opt(lookup, "APP_ENV", "dev"),
-		ProductName: opt(lookup, "PRODUCT_NAME", "PainBoard"),
+		ProductName: opt(lookup, "PRODUCT_NAME", "Grumble"),
 		SiteURL:     strings.TrimRight(opt(lookup, "SITE_URL", "http://localhost:3000"), "/"),
 		Log: Log{
 			Level: opt(lookup, "LOG_LEVEL", "info"),

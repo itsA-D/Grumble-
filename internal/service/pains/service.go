@@ -13,12 +13,12 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/OWNER/painboard/internal/domain"
-	"github.com/OWNER/painboard/internal/domain/moderation"
-	"github.com/OWNER/painboard/internal/domain/pain"
-	"github.com/OWNER/painboard/internal/domain/pii"
-	"github.com/OWNER/painboard/internal/domain/taxonomy"
-	"github.com/OWNER/painboard/internal/scoring"
+	"grumble/internal/domain"
+	"grumble/internal/domain/moderation"
+	"grumble/internal/domain/pain"
+	"grumble/internal/domain/pii"
+	"grumble/internal/domain/taxonomy"
+	"grumble/internal/scoring"
 )
 
 // slugAttempts bounds how many numeric suffixes are tried before falling back

@@ -8,7 +8,7 @@
 
 The original plan (a serverless TypeScript stack) exposed Postgres directly to
 clients and used Row Level Security (RLS) to constrain what anonymous clients
-could read. PainBoard is now a Go modular monolith: the only writer and reader
+could read. Grumble is now a Go modular monolith: the only writer and reader
 of the database is the server process, and there is no public database API.
 RLS adds a second, harder-to-test authorisation layer that duplicates what the
 Go repository layer already enforces, and it is easy to get subtly wrong

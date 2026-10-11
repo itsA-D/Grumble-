@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/OWNER/painboard/internal/service/feed"
-	"github.com/OWNER/painboard/internal/transport/web/seo"
-	"github.com/OWNER/painboard/internal/transport/web/views"
+	"grumble/internal/service/feed"
+	"grumble/internal/transport/web/seo"
+	"grumble/internal/transport/web/views"
 )
 
 // feedPageSize is how many pains one feed page shows.

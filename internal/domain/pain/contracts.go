@@ -3,7 +3,7 @@ package pain
 import (
 	"github.com/google/uuid"
 
-	"github.com/OWNER/painboard/internal/domain/taxonomy"
+	"grumble/internal/domain/taxonomy"
 )
 
 // New is the fully resolved input for creating a pain (service to store).

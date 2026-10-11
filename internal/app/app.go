@@ -14,20 +14,20 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/OWNER/painboard/internal/platform/clock"
-	"github.com/OWNER/painboard/internal/platform/config"
-	"github.com/OWNER/painboard/internal/platform/db"
-	"github.com/OWNER/painboard/internal/platform/idgen"
-	"github.com/OWNER/painboard/internal/platform/ratelimit"
-	"github.com/OWNER/painboard/internal/platform/turnstile"
-	"github.com/OWNER/painboard/internal/service/feed"
-	"github.com/OWNER/painboard/internal/service/hubs"
-	"github.com/OWNER/painboard/internal/service/identity"
-	"github.com/OWNER/painboard/internal/service/pains"
-	"github.com/OWNER/painboard/internal/service/seed"
-	"github.com/OWNER/painboard/internal/service/voting"
-	"github.com/OWNER/painboard/internal/store/postgres"
-	"github.com/OWNER/painboard/internal/transport/web"
+	"grumble/internal/platform/clock"
+	"grumble/internal/platform/config"
+	"grumble/internal/platform/db"
+	"grumble/internal/platform/idgen"
+	"grumble/internal/platform/ratelimit"
+	"grumble/internal/platform/turnstile"
+	"grumble/internal/service/feed"
+	"grumble/internal/service/hubs"
+	"grumble/internal/service/identity"
+	"grumble/internal/service/pains"
+	"grumble/internal/service/seed"
+	"grumble/internal/service/voting"
+	"grumble/internal/store/postgres"
+	"grumble/internal/transport/web"
 )
 
 // App owns the long-lived resources of a running server.
@@ -185,6 +185,6 @@ func dbConfig(cfg config.Config) db.Config {
 		MaxConns:         cfg.Database.MaxConns,
 		MinConns:         cfg.Database.MinConns,
 		StatementTimeout: cfg.Database.StatementTimeout,
-		ApplicationName:  "painboard",
+		ApplicationName:  "grumble",
 	}
 }

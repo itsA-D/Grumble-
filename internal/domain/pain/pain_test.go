@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/OWNER/painboard/internal/domain/taxonomy"
-	"github.com/OWNER/painboard/internal/scoring"
+	"grumble/internal/domain/taxonomy"
+	"grumble/internal/scoring"
 )
 
 func validPain() Pain {

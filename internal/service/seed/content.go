@@ -1,6 +1,6 @@
 package seed
 
-import "github.com/OWNER/painboard/internal/domain/pain"
+import "grumble/internal/domain/pain"
 
 // Item is one piece of labelled seed content. Category and Country are catalog
 // slugs/codes resolved against the taxonomy when the seed runs; Votes is the

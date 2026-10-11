@@ -10,9 +10,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/OWNER/painboard/internal/domain/pain"
-	"github.com/OWNER/painboard/internal/domain/taxonomy"
-	"github.com/OWNER/painboard/internal/scoring"
+	"grumble/internal/domain/pain"
+	"grumble/internal/domain/taxonomy"
+	"grumble/internal/scoring"
 )
 
 // sourceHashSeed is the non-personal placeholder stored as the source hash of a

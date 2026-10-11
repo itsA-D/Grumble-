@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/OWNER/painboard/internal/domain/pain"
+	"grumble/internal/domain/pain"
 )
 
 var feedNow = time.Date(2026, 1, 10, 12, 0, 0, 0, time.UTC)

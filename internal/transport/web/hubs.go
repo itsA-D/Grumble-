@@ -5,9 +5,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/OWNER/painboard/internal/service/hubs"
-	"github.com/OWNER/painboard/internal/transport/web/seo"
-	"github.com/OWNER/painboard/internal/transport/web/views"
+	"grumble/internal/service/hubs"
+	"grumble/internal/transport/web/seo"
+	"grumble/internal/transport/web/views"
 )
 
 // hubPageSize is how many pains a hub page lists.

@@ -8,10 +8,10 @@ import (
 
 func validEnv() map[string]string {
 	return map[string]string{
-		"DATABASE_URL":       "postgres://user:pass@localhost:5432/painboard",
+		"DATABASE_URL":       "postgres://user:pass@localhost:5432/grumble",
 		"ANON_ID_SECRET":     "0123456789abcdef",
 		"IP_HASH_SALT":       "fedcba9876543210",
-		"SITE_URL":           "https://painboard.example",
+		"SITE_URL":           "https://grumble.example",
 		"PRODUCT_NAME":       "Grumble",
 		"DATABASE_MAX_CONNS": "20",
 		"SSE_MAX_CLIENTS":    "5000",

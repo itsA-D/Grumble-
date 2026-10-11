@@ -12,14 +12,14 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/OWNER/painboard/internal/domain"
-	"github.com/OWNER/painboard/internal/domain/pain"
-	"github.com/OWNER/painboard/internal/domain/pii"
-	"github.com/OWNER/painboard/internal/domain/taxonomy"
-	"github.com/OWNER/painboard/internal/service/feed"
-	"github.com/OWNER/painboard/internal/service/hubs"
-	"github.com/OWNER/painboard/internal/service/pains"
-	"github.com/OWNER/painboard/internal/service/voting"
+	"grumble/internal/domain"
+	"grumble/internal/domain/pain"
+	"grumble/internal/domain/pii"
+	"grumble/internal/domain/taxonomy"
+	"grumble/internal/service/feed"
+	"grumble/internal/service/hubs"
+	"grumble/internal/service/pains"
+	"grumble/internal/service/voting"
 )
 
 // --- fakes ------------------------------------------------------------------
@@ -130,7 +130,7 @@ func newTestEnvEnv(t *testing.T, env string, painsSvc PainsService, feedSvc Feed
 	logger := slog.New(slog.NewJSONHandler(buf, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	h := NewRouter(Deps{
 		Logger:             logger,
-		ProductName:        "PainBoard",
+		ProductName:        "Grumble",
 		SiteURL:            "https://example.test",
 		Env:                env,
 		TrustedProxyHeader: "X-Forwarded-For",

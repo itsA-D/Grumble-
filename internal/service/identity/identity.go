@@ -19,7 +19,7 @@ const (
 	// AnonIDVersion prefixes signed anonymous ids.
 	AnonIDVersion = "v1"
 	// AnonIDPrefix separates the HMAC domain so ids signed elsewhere cannot collide.
-	anonIDPrefix = "painboard.anonid."
+	anonIDPrefix = "grumble.anonid."
 	// AnonIDMaxAge bounds how long the anonymous id cookie is accepted.
 	AnonIDMaxAge = 90 * 24 * time.Hour
 	// HashLen is the hex length of a stored source hash.

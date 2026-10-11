@@ -9,9 +9,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/OWNER/painboard/internal/domain"
-	"github.com/OWNER/painboard/internal/domain/pain"
-	"github.com/OWNER/painboard/internal/scoring"
+	"grumble/internal/domain"
+	"grumble/internal/domain/pain"
+	"grumble/internal/scoring"
 )
 
 var testInstant = time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)

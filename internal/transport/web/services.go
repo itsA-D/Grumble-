@@ -5,11 +5,11 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/OWNER/painboard/internal/domain/pain"
-	"github.com/OWNER/painboard/internal/service/feed"
-	"github.com/OWNER/painboard/internal/service/hubs"
-	"github.com/OWNER/painboard/internal/service/pains"
-	"github.com/OWNER/painboard/internal/service/voting"
+	"grumble/internal/domain/pain"
+	"grumble/internal/service/feed"
+	"grumble/internal/service/hubs"
+	"grumble/internal/service/pains"
+	"grumble/internal/service/voting"
 )
 
 // The transport declares the service surface it needs; the composition root

@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/OWNER/painboard/internal/domain/pain"
-	"github.com/OWNER/painboard/internal/domain/pii"
+	"grumble/internal/domain/pain"
+	"grumble/internal/domain/pii"
 )
 
 // --- fakes ------------------------------------------------------------------

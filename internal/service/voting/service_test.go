@@ -7,9 +7,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/OWNER/painboard/internal/domain"
-	"github.com/OWNER/painboard/internal/domain/pain"
-	"github.com/OWNER/painboard/internal/scoring"
+	"grumble/internal/domain"
+	"grumble/internal/domain/pain"
+	"grumble/internal/scoring"
 )
 
 type fakeStore struct {

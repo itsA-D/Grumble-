@@ -8,9 +8,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/OWNER/painboard/internal/domain"
-	"github.com/OWNER/painboard/internal/domain/pain"
-	"github.com/OWNER/painboard/internal/domain/taxonomy"
+	"grumble/internal/domain"
+	"grumble/internal/domain/pain"
+	"grumble/internal/domain/taxonomy"
 )
 
 // MinPublishedForIndex is the published-pain floor below which a hub is

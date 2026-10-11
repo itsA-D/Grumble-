@@ -1,8 +1,8 @@
 package views
 
 import (
-	"github.com/OWNER/painboard/internal/domain/taxonomy"
-	"github.com/OWNER/painboard/internal/transport/web/seo"
+	"grumble/internal/domain/taxonomy"
+	"grumble/internal/transport/web/seo"
 )
 
 // Page holds the data every page template needs.

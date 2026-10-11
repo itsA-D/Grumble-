@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OWNER/painboard/internal/domain/pain"
-	"github.com/OWNER/painboard/internal/transport/web/seo"
-	"github.com/OWNER/painboard/internal/transport/web/views"
+	"grumble/internal/domain/pain"
+	"grumble/internal/transport/web/seo"
+	"grumble/internal/transport/web/views"
 )
 
 func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {

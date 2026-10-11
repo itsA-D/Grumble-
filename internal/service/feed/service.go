@@ -8,8 +8,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/OWNER/painboard/internal/domain/pain"
-	"github.com/OWNER/painboard/internal/scoring"
+	"grumble/internal/domain/pain"
+	"grumble/internal/scoring"
 )
 
 // Page-size bounds.

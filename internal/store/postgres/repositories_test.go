@@ -18,11 +18,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 
-	"github.com/OWNER/painboard/internal/domain"
-	"github.com/OWNER/painboard/internal/domain/pain"
-	"github.com/OWNER/painboard/internal/domain/taxonomy"
-	"github.com/OWNER/painboard/internal/scoring"
-	"github.com/OWNER/painboard/internal/store/postgres"
+	"grumble/internal/domain"
+	"grumble/internal/domain/pain"
+	"grumble/internal/domain/taxonomy"
+	"grumble/internal/scoring"
+	"grumble/internal/store/postgres"
 )
 
 type fixture struct {
@@ -38,9 +38,9 @@ func newFixture(t *testing.T) *fixture {
 	ctx := context.Background()
 
 	container, err := tcpostgres.Run(ctx, "postgres:17-alpine",
-		tcpostgres.WithDatabase("painboard"),
-		tcpostgres.WithUsername("painboard"),
-		tcpostgres.WithPassword("painboard"),
+		tcpostgres.WithDatabase("grumble"),
+		tcpostgres.WithUsername("grumble"),
+		tcpostgres.WithPassword("grumble"),
 		tcpostgres.BasicWaitStrategies(),
 	)
 	if err != nil {
