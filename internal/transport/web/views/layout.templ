@@ -1,0 +1,25 @@
+package views
+
+templ Layout(page Page) {
+	<!DOCTYPE html>
+	<html lang="en" class="h-full">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ page.Meta.Title }</title>
+			if page.Meta.Description != "" {
+				<meta name="description" content={ page.Meta.Description }/>
+			}
+			if page.Meta.NoIndex {
+				<meta name="robots" content="noindex"/>
+			}
+			<link rel="canonical" href={ page.Meta.Canonical(page.SiteURL) }/>
+			<link rel="stylesheet" href="/static/app.css"/>
+			<script src="/static/theme-init.js"></script>
+			<script src="/static/app.js" defer></script>
+		</head>
+		<body class="flex min-h-full flex-col bg-canvas font-sans text-ink antialiased">
+			{ children... }
+		</body>
+	</html>
+}

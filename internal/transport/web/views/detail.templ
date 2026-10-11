@@ -1,0 +1,41 @@
+package views
+
+// Detail renders one pain with its vote control and related list (FR-DET-1).
+templ Detail(page DetailPage) {
+	@Layout(page.Page) {
+		@SiteHeader(page.Page)
+		<main id="main" class="mx-auto w-full max-w-5xl flex-1 px-6 py-10">
+			<nav aria-label="Breadcrumb" class="text-sm text-muted">
+				<a href="/" class="hover:text-ink">Explore</a>
+				<span aria-hidden="true"> / </span>
+				<a href={ "/c/" + page.Pain.CategorySlug } class="hover:text-ink">{ page.Pain.CategoryName }</a>
+			</nav>
+
+			<article class="mt-6">
+				<h1 class="text-2xl font-bold tracking-tight">{ page.Pain.Body }</h1>
+				<div class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted">
+					<a href={ "/country/" + page.Pain.CountryCode } class="hover:text-ink">{ page.Pain.CountryName }</a>
+					<span>urgency { page.Pain.Urgency }</span>
+				</div>
+				<div class="mt-6">
+					@VoteButtonView(VoteButton{
+						PainID:    page.PainID,
+						Voted:     page.Voted,
+						VoteCount: page.VoteCount,
+						CSRFToken: page.CSRFToken,
+					})
+				</div>
+			</article>
+
+			if len(page.Related) > 0 {
+				<section class="mt-12">
+					<h2 class="text-lg font-semibold tracking-tight">More { page.Pain.CategoryName } frustrations</h2>
+					<div class="mt-4">
+						@PainList(page.Related)
+					</div>
+				</section>
+			}
+		</main>
+		@SiteFooter()
+	}
+}

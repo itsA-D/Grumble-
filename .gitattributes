@@ -1,0 +1,20 @@
+# Normalise line endings in the repository to LF for every text file,
+# regardless of the developer's OS. Binary assets are marked explicitly so
+# Git never rewrites them.
+* text=auto eol=lf
+
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.webp  binary
+*.avif  binary
+*.woff  binary
+*.woff2 binary
+*.topojson binary
+*.pdf   binary
+
+go.mod  text
+go.sum  text
+Taskfile.yml text

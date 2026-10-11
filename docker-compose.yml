@@ -1,0 +1,80 @@
+name: painboard
+
+x-app-env: &app-env
+  APP_ENV: dev
+  DATABASE_URL: postgres://painboard:painboard@db:5432/painboard?sslmode=disable
+  ANON_ID_SECRET: dev-anon-secret-change-me-0000
+  IP_HASH_SALT: dev-ip-hash-salt-change-me0000
+  SITE_URL: http://localhost:3000
+  REALTIME_MODE: memory
+  RATELIMIT_MODE: memory
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: painboard
+      POSTGRES_PASSWORD: painboard
+      POSTGRES_DB: painboard
+    # Host port 5433 avoids clashing with a native Postgres on 5432. Override
+    # with DB_PORT and point DATABASE_URL at the same port.
+    ports:
+      - "${DB_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U painboard -d painboard"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  # Applies migrations once, then exits; `app` starts only after it succeeds.
+  migrate:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+    image: painboard:local
+    command: ["migrate"]
+    environment: *app-env
+    depends_on:
+      db:
+        condition: service_healthy
+
+  app:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+    image: painboard:local
+    command: ["serve"]
+    environment:
+      <<: *app-env
+      HTTP_ADDR: ":3000"
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "/app", "healthcheck"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  # Local Redis used by RATELIMIT_MODE=redis and the SSE bridge in multi-
+  # instance dev. Started only with: docker compose --profile redis up.
+  redis:
+    image: redis:7-alpine
+    profiles: ["redis"]
+    ports:
+      - "6379:6379"
+
+volumes:
+  db-data:

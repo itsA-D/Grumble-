@@ -1,0 +1,31 @@
+# Build and run artifacts
+/bin/
+/.run/
+/.cache/
+
+# Generated Tailwind CSS (rebuilt by `task generate`)
+/web/static/app.css
+/web/static/app*.css
+# Local Tailwind helper executable
+/tw.exe
+
+# Local environment (never commit secrets)
+.env
+.env.*
+!.env.example
+
+# Test and coverage output
+*.test
+*.out
+coverage.txt
+coverage.html
+
+# Playwright
+/test-results/
+/playwright-report/
+
+# OS and editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

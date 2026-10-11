@@ -1,0 +1,50 @@
+package views
+
+// Feed is the explore feed with its three tabs (FR-FEED-1).
+templ Feed(page FeedPage) {
+	@Layout(page.Page) {
+		@SiteHeader(page.Page)
+		<main id="main" class="mx-auto w-full max-w-5xl flex-1 px-6 py-10">
+			<h1 class="text-3xl font-bold tracking-tight">Frustrations ranked by urgency</h1>
+			<p class="mt-2 max-w-2xl text-muted">
+				Everyday problems people are tired of, ordered by how much they waste our time. Upvote the ones you recognise.
+			</p>
+			<nav aria-label="Feed view" class="mt-6 flex flex-wrap gap-2">
+				@feedTab("trending", "Trending", page.Tab)
+				@feedTab("latest", "Latest", page.Tab)
+				@feedTab("most_voted", "Most voted", page.Tab)
+			</nav>
+			<div class="mt-8">
+				if page.EmptyFeed {
+					<p class="rounded-lg border border-dashed border-edge bg-surface p-8 text-center text-muted">
+						Nothing has been posted in this view yet.
+						<a href="/submit" class="text-brand underline underline-offset-4">Post the first frustration.</a>
+					</p>
+				} else {
+					@PainList(page.Cards)
+				}
+			</div>
+			@feedPagination(page)
+		</main>
+		@SiteFooter()
+	}
+}
+
+templ feedTab(tab, label, active string) {
+	<a href={ "/?tab=" + tab } class={ tabClass(tab == active) }>{ label }</a>
+}
+
+templ feedPagination(page FeedPage) {
+	if page.HasPrev || page.HasNext {
+		<nav aria-label="Pagination" class="mt-8 flex items-center justify-between text-sm">
+			if page.HasPrev {
+				<a href={ feedURL(page.Tab, page.PrevPage) } class="text-brand underline underline-offset-4">Newer</a>
+			} else {
+				<span></span>
+			}
+			if page.HasNext {
+				<a href={ feedURL(page.Tab, page.NextPage) } class="text-brand underline underline-offset-4">Older</a>
+			}
+		</nav>
+	}
+}

@@ -1,0 +1,15 @@
+package views
+
+// Submitted confirms a submission that is not publicly visible: held for review
+// or rejected. It gives the author a response without a public link (FR-MOD-8).
+templ Submitted(page SubmittedPage) {
+	@Layout(page.Page) {
+		@SiteHeader(page.Page)
+		<main id="main" class="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-6 py-20">
+			<h1 class="text-3xl font-bold tracking-tight">{ page.Heading }</h1>
+			<p class="mt-4 text-lg text-muted">{ page.Message }</p>
+			<a href="/" class="mt-8 inline-block text-brand underline underline-offset-4">Back to the board</a>
+		</main>
+		@SiteFooter()
+	}
+}

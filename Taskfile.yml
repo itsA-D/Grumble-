@@ -1,0 +1,179 @@
+version: '3'
+
+# Cross-platform tasks. Run with `task <name>` or `go tool task <name>`.
+# Everything is driven from Go tools pinned in go.mod, so no Make, no Node.
+
+vars:
+  BIN: bin/app
+  DB_URL: '{{.DATABASE_URL | default "postgres://painboard:painboard@localhost:5433/painboard?sslmode=disable"}}'
+  TW: '{{.TW_CMD | default "go run ./scripts/tw"}}'
+  # Dev-only identity secrets so local commands pass config validation. Never
+  # used in production; override by exporting the real values.
+  DEV_ANON_ID_SECRET: '{{.ANON_ID_SECRET | default "dev-anon-secret-change-me-0000"}}'
+  DEV_IP_HASH_SALT: '{{.IP_HASH_SALT | default "dev-ip-hash-salt-change-me0000"}}'
+
+tasks:
+  default:
+    desc: List available tasks
+    silent: true
+    cmds:
+      - go tool task --list
+
+  # --- Code generation -------------------------------------------------------
+
+  generate:
+    desc: Generate templ views, sqlc code and Tailwind CSS
+    cmds:
+      - task: templ
+      - task: sqlc
+      - task: css
+
+  templ:
+    desc: Generate Go code from .templ files
+    cmds:
+      - go tool templ generate
+
+  sqlc:
+    desc: Generate the Postgres access layer from db/queries
+    cmds:
+      - go tool sqlc generate
+
+  css:
+    desc: Build the Tailwind stylesheet
+    cmds:
+      - '{{.TW}} -i web/src/app.css -o web/static/app.css --minify'
+
+  css:watch:
+    desc: Rebuild the Tailwind stylesheet on change
+    cmds:
+      - '{{.TW}} -i web/src/app.css -o web/static/app.css --watch'
+
+  # --- Build and run ---------------------------------------------------------
+
+  build:
+    desc: Build the static binary
+    cmds:
+      - go build -trimpath -ldflags "-s -w" -o {{.BIN}} ./cmd/app
+
+  run:
+    desc: Run the app (serve + worker in one process)
+    env:
+      ANON_ID_SECRET: '{{.DEV_ANON_ID_SECRET}}'
+      IP_HASH_SALT: '{{.DEV_IP_HASH_SALT}}'
+    cmds:
+      - go run ./cmd/app serve
+
+  dev:
+    desc: Run the app with live reload (air). Run `task css:watch` alongside it.
+    env:
+      ANON_ID_SECRET: '{{.DEV_ANON_ID_SECRET}}'
+      IP_HASH_SALT: '{{.DEV_IP_HASH_SALT}}'
+    cmds:
+      - go tool air -c .air.toml {{if eq OS "windows"}}--build.bin .run/app.exe{{end}}
+
+  # --- Quality gates ---------------------------------------------------------
+
+  vet:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+
+  lint:
+    desc: Run golangci-lint
+    cmds:
+      - go tool "-modfile=golangci-lint.mod" golangci-lint run
+
+  vuln:
+    desc: Run govulncheck
+    cmds:
+      - go tool govulncheck ./...
+
+  test:
+    desc: Run unit tests
+    cmds:
+      - go test ./...
+
+  test:integration:
+    desc: Run integration tests (testcontainers; needs Docker)
+    env:
+      # Docker Desktop on Windows cannot start the Ryuk reaper in some setups;
+      # cleanup still happens via t.Cleanup. Linux CI keeps Ryuk enabled.
+      TESTCONTAINERS_RYUK_DISABLED: '{{if eq OS "windows"}}true{{end}}'
+    cmds:
+      - go test -tags integration ./...
+
+  check:imports:
+    desc: Enforce module import boundaries
+    cmds:
+      - go run ./scripts/checkimports
+
+  test:e2e:
+    desc: Run Playwright end-to-end tests
+    cmds:
+      - npx playwright test
+
+  check:
+    desc: The local gate - lint, vet, test, imports and build
+    cmds:
+      - task: lint
+      - task: vet
+      - task: test
+      - task: check:imports
+      - task: build
+
+  ci:
+    desc: What CI runs - check plus vuln scanning
+    cmds:
+      - task: check
+      - task: vuln
+
+  # --- Database --------------------------------------------------------------
+
+  db:up:
+    desc: Start local Postgres
+    cmds:
+      - docker compose up -d --wait db
+
+  db:down:
+    desc: Stop local services
+    cmds:
+      - docker compose down
+
+  db:reset:
+    desc: Recreate the database, migrate and seed
+    cmds:
+      - docker compose down -v
+      - docker compose up -d --wait db
+      - task: migrate
+      - task: seed
+
+  migrate:
+    desc: Run database migrations
+    env:
+      DATABASE_URL: '{{.DB_URL}}'
+      ANON_ID_SECRET: '{{.DEV_ANON_ID_SECRET}}'
+      IP_HASH_SALT: '{{.DEV_IP_HASH_SALT}}'
+    cmds:
+      - go run ./cmd/app migrate
+
+  seed:
+    desc: Load labelled seed content and local fixtures
+    env:
+      DATABASE_URL: '{{.DB_URL}}'
+      ANON_ID_SECRET: '{{.DEV_ANON_ID_SECRET}}'
+      IP_HASH_SALT: '{{.DEV_IP_HASH_SALT}}'
+    cmds:
+      - go run ./cmd/app seed
+
+  # --- Tooling ---------------------------------------------------------------
+
+  tools:update:
+    desc: Refresh pinned tool versions in go.mod
+    cmds:
+      - go get -tool github.com/a-h/templ/cmd/templ@latest
+      - go get -tool github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+      - go get -tool github.com/pressly/goose/v3/cmd/goose@latest
+      - go get -tool golang.org/x/vuln/cmd/govulncheck@latest
+      - go get -tool github.com/air-verse/air@latest
+      - go get -tool github.com/go-task/task/v3/cmd/task@latest
+      - go get "-modfile=golangci-lint.mod" -tool github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest

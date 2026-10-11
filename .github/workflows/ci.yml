@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Generate templ views and CSS
+        run: go tool task generate
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.14
+
+  test:
+    name: Test and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Generate templ views and CSS
+        run: go tool task generate
+      - name: Vet
+        run: go tool task vet
+      - name: Import boundaries
+        run: go tool task check:imports
+      - name: Unit tests
+        run: go tool task test
+      - name: Build
+        run: go tool task build
+      - name: Vulnerability scan
+        run: go tool task vuln
+
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Generate templ views and CSS
+        run: go tool task generate
+      - name: Integration tests (testcontainers)
+        run: go tool task test:integration

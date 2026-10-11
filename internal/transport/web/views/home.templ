@@ -1,0 +1,36 @@
+package views
+
+templ Home(page Page) {
+	@Layout(page) {
+		<header class="border-b border-edge bg-surface">
+			<div class="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-6 py-4">
+				<a href="/" class="text-lg font-semibold tracking-tight text-brand">{ page.ProductName }</a>
+				<button
+					type="button"
+					data-theme-toggle
+					aria-pressed="false"
+					class="rounded-md border border-edge px-3 py-1.5 text-sm text-muted transition hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+				>
+					Dark mode
+				</button>
+			</div>
+		</header>
+		<main class="mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center px-6 py-20">
+			<p class="text-sm font-medium uppercase tracking-widest text-brand">Crowdsourced frustrations</p>
+			<h1 class="mt-4 max-w-3xl text-4xl font-bold tracking-tight sm:text-5xl">
+				Say what is broken. Builders fix what matters most.
+			</h1>
+			<p class="mt-6 max-w-2xl text-lg text-muted">
+				{ page.ProductName } is a public board where people post everyday frustrations and upvote the ones that waste the most time. The most urgent rise to the top, and builders can pay to tackle them.
+			</p>
+			<div class="mt-8">
+				<span class="inline-flex items-center rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white">
+					Launching soon
+				</span>
+			</div>
+		</main>
+		<footer class="border-t border-edge px-6 py-6 text-sm text-muted">
+			<div class="mx-auto w-full max-w-5xl">Built for people who are tired of the same old problems.</div>
+		</footer>
+	}
+}

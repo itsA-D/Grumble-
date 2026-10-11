@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Scan Go and templ sources for utility classes. */
+@source "../../internal";
+@source "../../cmd";
+
+/* Design tokens. Utilities reference these variables, so the .dark override
+   below switches the whole palette. No hard-coded hex values in components. */
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --color-canvas: oklch(0.985 0.004 260);
+  --color-surface: oklch(1 0 0);
+  --color-ink: oklch(0.22 0.02 260);
+  --color-muted: oklch(0.52 0.02 260);
+  --color-edge: oklch(0.9 0.01 260);
+  --color-brand: oklch(0.58 0.2 275);
+  --color-brand-strong: oklch(0.5 0.21 275);
+}
+
+.dark {
+  --color-canvas: oklch(0.17 0.02 265);
+  --color-surface: oklch(0.21 0.02 265);
+  --color-ink: oklch(0.96 0.01 260);
+  --color-muted: oklch(0.72 0.02 260);
+  --color-edge: oklch(0.31 0.02 265);
+  --color-brand: oklch(0.72 0.17 275);
+  --color-brand-strong: oklch(0.8 0.14 275);
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+}

@@ -1,0 +1,93 @@
+package views
+
+// SiteHeader is the shared top bar with the primary navigation and the theme
+// toggle. It is a semantic <header> with a nav landmark.
+templ SiteHeader(page Page) {
+	<a
+		href="#main"
+		class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2 focus:text-ink"
+	>
+		Skip to content
+	</a>
+	<header class="border-b border-edge bg-surface">
+		<div class="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-6 py-4">
+			<a href="/" class="text-lg font-semibold tracking-tight text-brand">{ page.ProductName }</a>
+			<nav aria-label="Primary" class="flex items-center gap-4">
+				<a href="/" class="text-sm text-muted transition hover:text-ink">Explore</a>
+				<a
+					href="/submit"
+					class="rounded-md bg-brand px-3 py-1.5 text-sm font-semibold text-white transition hover:opacity-90"
+				>
+					Post a frustration
+				</a>
+				<button
+					type="button"
+					data-theme-toggle
+					aria-pressed="false"
+					class="rounded-md border border-edge px-3 py-1.5 text-sm text-muted transition hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+				>
+					Dark mode
+				</button>
+			</nav>
+		</div>
+	</header>
+}
+
+// SiteFooter is the shared footer.
+templ SiteFooter() {
+	<footer class="border-t border-edge px-6 py-6 text-sm text-muted">
+		<div class="mx-auto w-full max-w-5xl">Built for people who are tired of the same old problems.</div>
+	</footer>
+}
+
+// PainCardView renders one pain in a list or feed.
+templ PainCardView(card PainCard) {
+	<article class="rounded-lg border border-edge bg-surface p-5">
+		<a href={ "/p/" + card.Slug } class="block">
+			<p class="text-base leading-relaxed text-ink">{ card.Body }</p>
+		</a>
+		<div class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted">
+			<a href={ "/c/" + card.CategorySlug } class="hover:text-ink">{ card.CategoryName }</a>
+			<a href={ "/country/" + card.CountryCode } class="hover:text-ink">{ card.CountryName }</a>
+			<span>{ countLabel(card.VoteCount, "vote", "votes") }</span>
+			<span>urgency { card.Urgency }</span>
+		</div>
+	</article>
+}
+
+// PainList renders a list of pain cards, or nothing when empty.
+templ PainList(cards []PainCard) {
+	<div class="flex flex-col gap-4">
+		for _, card := range cards {
+			@PainCardView(card)
+		}
+	</div>
+}
+
+// VoteButtonView is the HTMX-swappable vote control. The hidden field carries
+// the desired end state, so a double-click re-sends "add" and the server applies
+// it once (FR-VOTE-1). It is also the fragment returned by POST /p/{id}/vote.
+templ VoteButtonView(v VoteButton) {
+	<div id={ "vote-" + v.PainID }>
+		<form
+			hx-post={ "/p/" + v.PainID + "/vote" }
+			hx-target={ "#vote-" + v.PainID }
+			hx-swap="outerHTML"
+		>
+			<input type="hidden" name="csrf_token" value={ v.CSRFToken }/>
+			if v.Voted {
+				<input type="hidden" name="voted" value="0"/>
+			} else {
+				<input type="hidden" name="voted" value="1"/>
+			}
+			<button
+				type="submit"
+				aria-pressed={ boolStr(v.Voted) }
+				class="inline-flex items-center gap-2 rounded-md border border-edge px-4 py-2 text-sm font-semibold text-ink transition hover:border-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+			>
+				<span aria-hidden="true">{ voteGlyph(v.Voted) }</span>
+				<span>{ voteLabel(v) }</span>
+			</button>
+		</form>
+	</div>
+}

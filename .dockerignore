@@ -1,0 +1,8 @@
+.git
+.github
+bin
+.run
+.cache
+node_modules
+web/static/app.css
+*_templ.go
