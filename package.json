@@ -1,0 +1,12 @@
+{
+  "name": "painboard-e2e",
+  "private": true,
+  "description": "Playwright end-to-end tests for PainBoard (PRD milestone M1 gate)",
+  "scripts": {
+    "test:e2e": "playwright test",
+    "e2e:install": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}

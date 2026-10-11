@@ -20,7 +20,8 @@
 coverage.txt
 coverage.html
 
-# Playwright
+# Playwright / Node
+/node_modules/
 /test-results/
 /playwright-report/
 

@@ -108,8 +108,15 @@ tasks:
       - go run ./scripts/checkimports
 
   test:e2e:
-    desc: Run Playwright end-to-end tests
+    desc: Run Playwright end-to-end tests (needs Docker; migrates and seeds first)
+    deps:
+      - db:up
+      - migrate
+      - seed
+    env:
+      DATABASE_URL: '{{.DB_URL}}'
     cmds:
+      - npx playwright install chromium
       - npx playwright test
 
   check:
