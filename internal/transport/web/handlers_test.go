@@ -29,8 +29,8 @@ type fakeFeed struct {
 	err   error
 }
 
-func (f fakeFeed) List(context.Context, feed.Query) ([]pain.Pain, error) {
-	return f.pains, f.err
+func (f fakeFeed) List(context.Context, feed.Query) (feed.Page, error) {
+	return feed.Page{Pains: f.pains}, f.err
 }
 
 // feedRecorder captures the query the feed handler builds.
@@ -38,11 +38,11 @@ type feedRecorder struct {
 	record func(feed.Query)
 }
 
-func (f feedRecorder) List(_ context.Context, q feed.Query) ([]pain.Pain, error) {
+func (f feedRecorder) List(_ context.Context, q feed.Query) (feed.Page, error) {
 	if f.record != nil {
 		f.record(q)
 	}
-	return nil, nil
+	return feed.Page{}, nil
 }
 
 type fakePains struct {

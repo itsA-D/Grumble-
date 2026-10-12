@@ -364,19 +364,35 @@ func (q *Queries) ListPublishedByCountry(ctx context.Context, arg ListPublishedB
 	return items, nil
 }
 
-const listPublishedLatest = `-- name: ListPublishedLatest :many
+const listPublishedFeedLatest = `-- name: ListPublishedFeedLatest :many
 SELECT id, slug, body, category, country, status, frequency, disruption, would_pay, monthly_amount, tried, vote_count, urgency, scoring_version, seeded, created_at, published_at FROM published_pains
+WHERE ($1::text = '' OR category = $1::text)
+  AND ($2::text = '' OR position(lower($2::text) in lower(body)) > 0)
+  AND (created_at, id) < ($3::timestamptz, $4::uuid)
 ORDER BY created_at DESC, id DESC
-LIMIT $1 OFFSET $2
+LIMIT $5
 `
 
-type ListPublishedLatestParams struct {
-	Limit  int32 `json:"limit"`
-	Offset int32 `json:"offset"`
+type ListPublishedFeedLatestParams struct {
+	Category     string             `json:"category"`
+	Search       string             `json:"search"`
+	AfterCreated pgtype.Timestamptz `json:"after_created"`
+	AfterID      uuid.UUID          `json:"after_id"`
+	PageLimit    int32              `json:"page_limit"`
 }
 
-func (q *Queries) ListPublishedLatest(ctx context.Context, arg ListPublishedLatestParams) ([]PublishedPain, error) {
-	rows, err := q.db.Query(ctx, listPublishedLatest, arg.Limit, arg.Offset)
+// Keyset page of published pains, newest first (FR-FEED-1). Empty @category and
+// @search mean "no filter"; search is a literal substring, so user input with
+// % or _ is not treated as a wildcard. The caller passes a far-future
+// @after_created and a nil @after_id to fetch the first page.
+func (q *Queries) ListPublishedFeedLatest(ctx context.Context, arg ListPublishedFeedLatestParams) ([]PublishedPain, error) {
+	rows, err := q.db.Query(ctx, listPublishedFeedLatest,
+		arg.Category,
+		arg.Search,
+		arg.AfterCreated,
+		arg.AfterID,
+		arg.PageLimit,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -413,19 +429,36 @@ func (q *Queries) ListPublishedLatest(ctx context.Context, arg ListPublishedLate
 	return items, nil
 }
 
-const listPublishedTopVotes = `-- name: ListPublishedTopVotes :many
+const listPublishedFeedTopVotes = `-- name: ListPublishedFeedTopVotes :many
 SELECT id, slug, body, category, country, status, frequency, disruption, would_pay, monthly_amount, tried, vote_count, urgency, scoring_version, seeded, created_at, published_at FROM published_pains
+WHERE ($1::text = '' OR category = $1::text)
+  AND ($2::text = '' OR position(lower($2::text) in lower(body)) > 0)
+  AND (vote_count, created_at, id) < ($3::int, $4::timestamptz, $5::uuid)
 ORDER BY vote_count DESC, created_at DESC, id DESC
-LIMIT $1 OFFSET $2
+LIMIT $6
 `
 
-type ListPublishedTopVotesParams struct {
-	Limit  int32 `json:"limit"`
-	Offset int32 `json:"offset"`
+type ListPublishedFeedTopVotesParams struct {
+	Category     string             `json:"category"`
+	Search       string             `json:"search"`
+	AfterVotes   int32              `json:"after_votes"`
+	AfterCreated pgtype.Timestamptz `json:"after_created"`
+	AfterID      uuid.UUID          `json:"after_id"`
+	PageLimit    int32              `json:"page_limit"`
 }
 
-func (q *Queries) ListPublishedTopVotes(ctx context.Context, arg ListPublishedTopVotesParams) ([]PublishedPain, error) {
-	rows, err := q.db.Query(ctx, listPublishedTopVotes, arg.Limit, arg.Offset)
+// Keyset page of published pains, most voted first (FR-FEED-1). The first-page
+// sentinel is @after_votes = max int, @after_created far in the future and a
+// nil @after_id, so every row compares less than the cursor.
+func (q *Queries) ListPublishedFeedTopVotes(ctx context.Context, arg ListPublishedFeedTopVotesParams) ([]PublishedPain, error) {
+	rows, err := q.db.Query(ctx, listPublishedFeedTopVotes,
+		arg.Category,
+		arg.Search,
+		arg.AfterVotes,
+		arg.AfterCreated,
+		arg.AfterID,
+		arg.PageLimit,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -470,9 +503,17 @@ SELECT p.id, p.slug, p.body, p.category, p.country, p.status, p.frequency,
          WHERE v.pain_id = p.id
            AND v.created_at >= now() - interval '7 days') AS votes_7d
 FROM published_pains p
+WHERE ($1::text = '' OR p.category = $1::text)
+  AND ($2::text = '' OR position(lower($2::text) in lower(p.body)) > 0)
 ORDER BY p.created_at DESC
-LIMIT $1
+LIMIT $3
 `
+
+type ListPublishedTrendingCandidatesParams struct {
+	Category  string `json:"category"`
+	Search    string `json:"search"`
+	PageLimit int32  `json:"page_limit"`
+}
 
 type ListPublishedTrendingCandidatesRow struct {
 	ID            uuid.UUID          `json:"id"`
@@ -497,8 +538,10 @@ type ListPublishedTrendingCandidatesRow struct {
 // Candidates for the trending tab. The pure scoring package finishes the hot
 // rank in Go; this query only supplies the inputs plus the 7-day vote window.
 // comments_7d arrives with the comments table in M2 and is treated as zero.
-func (q *Queries) ListPublishedTrendingCandidates(ctx context.Context, limit int32) ([]ListPublishedTrendingCandidatesRow, error) {
-	rows, err := q.db.Query(ctx, listPublishedTrendingCandidates, limit)
+// @category and @search narrow the candidate window the same way as the
+// keyset tabs.
+func (q *Queries) ListPublishedTrendingCandidates(ctx context.Context, arg ListPublishedTrendingCandidatesParams) ([]ListPublishedTrendingCandidatesRow, error) {
+	rows, err := q.db.Query(ctx, listPublishedTrendingCandidates, arg.Category, arg.Search, arg.PageLimit)
 	if err != nil {
 		return nil, err
 	}

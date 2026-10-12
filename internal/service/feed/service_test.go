@@ -17,20 +17,20 @@ type fakeStore struct {
 	top        []pain.Pain
 	candidates []pain.Trending
 	lastLimit  int
-	lastOffset int
 }
 
-func (f *fakeStore) ListLatest(_ context.Context, limit, offset int) ([]pain.Pain, error) {
-	f.lastLimit, f.lastOffset = limit, offset
-	return f.latest, nil
+func (f *fakeStore) ListFeed(_ context.Context, fl pain.FeedFilter) ([]pain.Pain, error) {
+	f.lastLimit = fl.Limit - 1
+	// Simulate old semantics for the existing tests.
+	switch fl.Order {
+	case pain.FeedTopVotes:
+		return f.top, nil
+	default:
+		return f.latest, nil
+	}
 }
 
-func (f *fakeStore) ListTopVotes(_ context.Context, limit, offset int) ([]pain.Pain, error) {
-	f.lastLimit, f.lastOffset = limit, offset
-	return f.top, nil
-}
-
-func (f *fakeStore) ListTrendingCandidates(_ context.Context, limit int) ([]pain.Trending, error) {
+func (f *fakeStore) ListTrendingCandidates(_ context.Context, _, _ string, limit int) ([]pain.Trending, error) {
 	f.lastLimit = limit
 	return f.candidates, nil
 }
@@ -59,12 +59,12 @@ func TestTrendingRanksVotesThenAge(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
-	if len(got) != 3 {
-		t.Fatalf("len = %d, want 3", len(got))
+	if len(got.Pains) != 3 {
+		t.Fatalf("len = %d, want 3", len(got.Pains))
 	}
 	want := []byte{1, 2, 3}
 	for i, wantID := range want {
-		if got[i].ID != (uuid.UUID{wantID}) {
+		if got.Pains[i].ID != (uuid.UUID{wantID}) {
 			t.Fatalf("order = %v, want %v", got, want)
 		}
 	}
@@ -78,11 +78,15 @@ func TestTrendingPagesInMemory(t *testing.T) {
 	}}
 	svc := New(store, fixedClock{})
 
-	got, err := svc.List(context.Background(), Query{Tab: Trending, Limit: 1, Offset: 1})
+	gotFirst, err := svc.List(context.Background(), Query{Tab: Trending, Limit: 1})
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
-	if len(got) != 1 || got[0].ID != (uuid.UUID{2}) {
+	got, err := svc.List(context.Background(), Query{Tab: Trending, Limit: 1, Cursor: gotFirst.NextCursor})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(got.Pains) != 1 || got.Pains[0].ID != (uuid.UUID{2}) {
 		t.Fatalf("page = %v, want the second hottest only", got)
 	}
 }
@@ -95,8 +99,8 @@ func TestLatestUsesStoreAndDefaultLimit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
-	if len(got) != 1 {
-		t.Fatalf("len = %d, want 1", len(got))
+	if len(got.Pains) != 1 {
+		t.Fatalf("len = %d, want 1", len(got.Pains))
 	}
 	if store.lastLimit != DefaultLimit {
 		t.Fatalf("limit = %d, want default %d", store.lastLimit, DefaultLimit)

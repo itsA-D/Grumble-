@@ -17,7 +17,7 @@ import (
 
 // FeedService returns a page of the explore feed (FR-FEED-1/2).
 type FeedService interface {
-	List(ctx context.Context, q feed.Query) ([]pain.Pain, error)
+	List(ctx context.Context, q feed.Query) (feed.Page, error)
 }
 
 // PainsService submits a pain, reads one detail page and lists recent pains for

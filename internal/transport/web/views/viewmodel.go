@@ -35,15 +35,19 @@ type PainCard struct {
 // FeedPage is the explore feed (FR-FEED-1).
 type FeedPage struct {
 	Page
-	Tab       string
-	TabLabel  string
-	Cards     []PainCard
-	PageNum   int
-	HasPrev   bool
-	HasNext   bool
-	PrevPage  int
-	NextPage  int
-	EmptyFeed bool
+	Tab      string
+	TabLabel string
+	// Categories are the filter chips; ActiveCategory is the selected slug ("" is
+	// "All").
+	Categories     []taxonomy.Category
+	ActiveCategory string
+	// Search is the current body search term ("" when unset).
+	Search     string
+	Cards      []PainCard
+	NextCursor string
+	HasNext    bool
+	HasCursor  bool
+	EmptyFeed  bool
 }
 
 // DetailPage is one pain with its related list and vote control (FR-DET-1).

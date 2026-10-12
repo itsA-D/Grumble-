@@ -109,28 +109,61 @@ func (r *Pains) PublishedBySlug(ctx context.Context, slug string) (pain.Pain, er
 	return painFromPublished(row), nil
 }
 
-// ListLatest returns the newest published pains (FR-FEED-1).
-func (r *Pains) ListLatest(ctx context.Context, limit, offset int) ([]pain.Pain, error) {
-	rows, err := queries.New(handle(ctx, r.pool)).ListPublishedLatest(ctx, queries.ListPublishedLatestParams{
-		Limit:  int32(limit),
-		Offset: int32(offset),
+// ListFeed returns one keyset page of published pains in the requested order
+// (FR-FEED-1). Category and Search narrow the page; the cursor is the sort key
+// of the previous page's last row. Only published rows are ever returned.
+func (r *Pains) ListFeed(ctx context.Context, f pain.FeedFilter) ([]pain.Pain, error) {
+	q := queries.New(handle(ctx, r.pool))
+	after := timestamp(f.After.CreatedAt)
+	if f.Order == pain.FeedTopVotes {
+		rows, err := q.ListPublishedFeedTopVotes(ctx, queries.ListPublishedFeedTopVotesParams{
+			Category:     f.Category,
+			Search:       f.Search,
+			AfterVotes:   int32(f.After.Votes),
+			AfterCreated: after,
+			AfterID:      f.After.ID,
+			PageLimit:    int32(f.Limit),
+		})
+		return mapPublished(rows, err)
+	}
+	rows, err := q.ListPublishedFeedLatest(ctx, queries.ListPublishedFeedLatestParams{
+		Category:     f.Category,
+		Search:       f.Search,
+		AfterCreated: after,
+		AfterID:      f.After.ID,
+		PageLimit:    int32(f.Limit),
 	})
 	return mapPublished(rows, err)
 }
 
-// ListTopVotes returns published pains ranked by vote count (FR-FEED-1).
-func (r *Pains) ListTopVotes(ctx context.Context, limit, offset int) ([]pain.Pain, error) {
-	rows, err := queries.New(handle(ctx, r.pool)).ListPublishedTopVotes(ctx, queries.ListPublishedTopVotesParams{
-		Limit:  int32(limit),
-		Offset: int32(offset),
+// ListLatest returns the newest published pains (FR-FEED-1).
+func (r *Pains) ListLatest(ctx context.Context, limit, offset int) ([]pain.Pain, error) {
+	rows, err := r.ListFeed(ctx, pain.FeedFilter{
+		Order: pain.FeedLatest,
+		After: pain.FeedCursor{
+			CreatedAt: time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC),
+			ID:        uuid.Nil,
+			Votes:     0,
+		},
+		Limit: limit,
 	})
-	return mapPublished(rows, err)
+	if err != nil {
+		return nil, err
+	}
+	if limit > 0 && len(rows) > limit {
+		rows = rows[:limit]
+	}
+	return rows, nil
 }
 
 // ListTrendingCandidates returns recent published pains with their 7-day vote
 // window; the hot rank is finished by the pure scoring package in Go.
-func (r *Pains) ListTrendingCandidates(ctx context.Context, limit int) ([]pain.Trending, error) {
-	rows, err := queries.New(handle(ctx, r.pool)).ListPublishedTrendingCandidates(ctx, int32(limit))
+func (r *Pains) ListTrendingCandidates(ctx context.Context, category, search string, limit int) ([]pain.Trending, error) {
+	rows, err := queries.New(handle(ctx, r.pool)).ListPublishedTrendingCandidates(ctx, queries.ListPublishedTrendingCandidatesParams{
+		Category:  category,
+		Search:    search,
+		PageLimit: int32(limit),
+	})
 	if err != nil {
 		return nil, err
 	}

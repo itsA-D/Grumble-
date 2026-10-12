@@ -2,6 +2,7 @@ package views
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -46,9 +47,29 @@ func tabClass(active bool) string {
 	return "rounded-md border border-edge px-3 py-1.5 text-sm text-muted transition hover:text-ink"
 }
 
-// feedURL builds a feed page link preserving the tab.
-func feedURL(tab string, page int) string {
-	return fmt.Sprintf("/?tab=%s&page=%d", tab, page)
+// feedLink builds a feed URL preserving the tab and the active filters. An empty
+// cursor starts at the newest page of the ordering.
+func feedLink(tab, category, search, cursor string) string {
+	v := url.Values{}
+	v.Set("tab", tab)
+	if category != "" {
+		v.Set("category", category)
+	}
+	if search != "" {
+		v.Set("q", search)
+	}
+	if cursor != "" {
+		v.Set("cursor", cursor)
+	}
+	return "/?" + v.Encode()
+}
+
+// chipClass styles an active or inactive category filter chip.
+func chipClass(active bool) string {
+	if active {
+		return "rounded-full bg-brand px-3 py-1 text-sm font-medium text-white"
+	}
+	return "rounded-full border border-edge px-3 py-1 text-sm text-muted transition hover:text-ink"
 }
 
 // joinKinds renders the PII kind labels as a readable list.

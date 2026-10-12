@@ -44,7 +44,7 @@ func (f *fakeStore) PublishedBySlug(_ context.Context, _ string) (pain.Pain, err
 	return pain.Pain{}, domain.ErrNotFound
 }
 
-func (f *fakeStore) ListLatest(_ context.Context, _, _ int) ([]pain.Pain, error) {
+func (f *fakeStore) ListFeed(_ context.Context, _ pain.FeedFilter) ([]pain.Pain, error) {
 	return nil, f.err
 }
 

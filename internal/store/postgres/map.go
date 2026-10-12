@@ -108,6 +108,10 @@ func timeOf(ts pgtype.Timestamptz) time.Time {
 	return time.Time{}
 }
 
+func timestamp(t time.Time) pgtype.Timestamptz {
+	return pgtype.Timestamptz{Time: t.UTC(), Valid: true}
+}
+
 func optionalTime(ts pgtype.Timestamptz) *time.Time {
 	if ts.Valid {
 		t := ts.Time

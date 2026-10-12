@@ -47,7 +47,9 @@ type Store interface {
 	SetStatus(ctx context.Context, id uuid.UUID, status pain.Status) error
 	SlugExists(ctx context.Context, slug string) (bool, error)
 	PublishedBySlug(ctx context.Context, slug string) (pain.Pain, error)
-	ListLatest(ctx context.Context, limit, offset int) ([]pain.Pain, error)
+	// ListLatest is only needed for sitemap on this service. We keep it
+	// satisfied by a keyset read that fetches from the beginning.
+	ListFeed(ctx context.Context, f pain.FeedFilter) ([]pain.Pain, error)
 	ListRelated(ctx context.Context, category string, excludeID uuid.UUID, limit int) ([]pain.Pain, error)
 	UpdateCounters(ctx context.Context, id uuid.UUID, voteCount, urgency int) error
 }
@@ -287,7 +289,13 @@ func (s *Service) Get(ctx context.Context, slug string) (Detail, error) {
 // published rows are read (the store reads the published view), so held and
 // rejected submissions never appear (FR-MOD-8, ADR 0001).
 func (s *Service) RecentForSitemap(ctx context.Context, limit int) ([]pain.Pain, error) {
-	return s.store.ListLatest(ctx, limit, 0)
+	return s.store.ListFeed(ctx, pain.FeedFilter{
+		Order:    pain.FeedLatest,
+		Category: "",
+		Search:   "",
+		After:    pain.FeedCursor{CreatedAt: time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC), ID: uuid.Nil, Votes: 0},
+		Limit:    limit + 1,
+	})
 }
 
 // uniqueSlug returns base, or base with a suffix, that no pain uses yet

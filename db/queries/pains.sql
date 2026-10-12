@@ -43,20 +43,35 @@ SELECT EXISTS (SELECT 1 FROM pains WHERE slug = $1);
 -- name: GetPublishedBySlug :one
 SELECT * FROM published_pains WHERE slug = $1;
 
--- name: ListPublishedLatest :many
+-- name: ListPublishedFeedLatest :many
+-- Keyset page of published pains, newest first (FR-FEED-1). Empty @category and
+-- @search mean "no filter"; search is a literal substring, so user input with
+-- % or _ is not treated as a wildcard. The caller passes a far-future
+-- @after_created and a nil @after_id to fetch the first page.
 SELECT * FROM published_pains
+WHERE (@category::text = '' OR category = @category::text)
+  AND (@search::text = '' OR position(lower(@search::text) in lower(body)) > 0)
+  AND (created_at, id) < (@after_created::timestamptz, @after_id::uuid)
 ORDER BY created_at DESC, id DESC
-LIMIT $1 OFFSET $2;
+LIMIT @page_limit;
 
--- name: ListPublishedTopVotes :many
+-- name: ListPublishedFeedTopVotes :many
+-- Keyset page of published pains, most voted first (FR-FEED-1). The first-page
+-- sentinel is @after_votes = max int, @after_created far in the future and a
+-- nil @after_id, so every row compares less than the cursor.
 SELECT * FROM published_pains
+WHERE (@category::text = '' OR category = @category::text)
+  AND (@search::text = '' OR position(lower(@search::text) in lower(body)) > 0)
+  AND (vote_count, created_at, id) < (@after_votes::int, @after_created::timestamptz, @after_id::uuid)
 ORDER BY vote_count DESC, created_at DESC, id DESC
-LIMIT $1 OFFSET $2;
+LIMIT @page_limit;
 
 -- name: ListPublishedTrendingCandidates :many
 -- Candidates for the trending tab. The pure scoring package finishes the hot
 -- rank in Go; this query only supplies the inputs plus the 7-day vote window.
 -- comments_7d arrives with the comments table in M2 and is treated as zero.
+-- @category and @search narrow the candidate window the same way as the
+-- keyset tabs.
 SELECT p.id, p.slug, p.body, p.category, p.country, p.status, p.frequency,
        p.disruption, p.would_pay, p.monthly_amount, p.tried, p.vote_count,
        p.urgency, p.seeded, p.created_at, p.published_at,
@@ -64,8 +79,10 @@ SELECT p.id, p.slug, p.body, p.category, p.country, p.status, p.frequency,
          WHERE v.pain_id = p.id
            AND v.created_at >= now() - interval '7 days') AS votes_7d
 FROM published_pains p
+WHERE (@category::text = '' OR p.category = @category::text)
+  AND (@search::text = '' OR position(lower(@search::text) in lower(p.body)) > 0)
 ORDER BY p.created_at DESC
-LIMIT $1;
+LIMIT @page_limit;
 
 -- name: ListPublishedByCategory :many
 SELECT * FROM published_pains
