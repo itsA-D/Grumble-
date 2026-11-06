@@ -1,15 +1,24 @@
 package views
 
+import "grumble/internal/transport/web/views/ui"
+
 // Submitted confirms a submission that is not publicly visible: held for review
 // or rejected. It gives the author a response without a public link (FR-MOD-8).
 templ Submitted(page SubmittedPage) {
 	@Layout(page.Page) {
-		@SiteHeader(page.Page)
-		<main id="main" class="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-6 py-20">
-			<h1 class="text-3xl font-bold tracking-tight">{ page.Heading }</h1>
-			<p class="mt-4 text-lg text-muted">{ page.Message }</p>
-			<a href="/" class="mt-8 inline-block text-brand underline underline-offset-4">Back to the board</a>
-		</main>
-		@SiteFooter()
+		<div class="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-5 py-20 sm:px-8">
+			@ui.Panel() {
+				<div class="p-8 sm:p-12">
+					<p class="meta">Submission received</p>
+					<h1 class="display mt-4 text-4xl sm:text-5xl">{ page.Heading }</h1>
+					<p class="mt-5 text-base leading-relaxed text-fg-soft sm:text-lg">{ page.Message }</p>
+					<div class="mt-8">
+						@ui.ButtonLink("/", ui.Primary) {
+							Back to the board
+						}
+					</div>
+				</div>
+			}
+		</div>
 	}
 }

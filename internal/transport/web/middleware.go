@@ -1,7 +1,9 @@
 package web
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -110,7 +112,7 @@ func (s *Server) csrfProtection(next http.Handler) http.Handler {
 		}
 		token := r.Header.Get(csrfHeader)
 		if token == "" {
-			token = r.PostFormValue(csrfFormName)
+			token = formValue(r, csrfFormName)
 		}
 		if !s.deps.Identity.VerifyCSRF(AnonID(r.Context()), token) {
 			s.renderError(w, r, domain.ErrForbidden)
@@ -118,6 +120,33 @@ func (s *Server) csrfProtection(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// formValue reads a form field for any unsafe method. HTMX appends form values
+// to the query string for DELETE, while Go's PostFormValue only reads POST-style
+// bodies; FormValue covers the query and the body. The DELETE body fallback
+// keeps a hand-written form working too. The body is buffered and restored so
+// the handler can read it again.
+func formValue(r *http.Request, name string) string {
+	if v := r.FormValue(name); v != "" {
+		return v
+	}
+	if r.Method != http.MethodDelete || r.Body == nil {
+		return ""
+	}
+	if ct := r.Header.Get("Content-Type"); !strings.HasPrefix(ct, "application/x-www-form-urlencoded") {
+		return ""
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, 64<<10))
+	if err != nil {
+		return ""
+	}
+	r.Body = io.NopCloser(bytes.NewReader(body))
+	values, err := url.ParseQuery(string(body))
+	if err != nil {
+		return ""
+	}
+	return values.Get(name)
 }
 
 // sameHost reports whether an Origin/Referer URL shares this request's host.

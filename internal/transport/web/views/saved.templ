@@ -1,0 +1,56 @@
+package views
+
+import "grumble/internal/transport/web/views/ui"
+
+// Saved is the private saved list on this device. It is always noindex.
+templ Saved(page SavedPage) {
+	@Layout(page.Page) {
+		<div class="mx-auto w-full max-w-[760px] flex-1 px-5 pb-20 pt-10 sm:px-8 sm:pt-14">
+			@ui.PageHeader("YOUR LIST", "Saved", "Frustrations you saved on this device.")
+			<p id="saved-count" class="meta mb-6" aria-live="polite">{ savedCountLabel(page.Count, page.Limit) }</p>
+			<div id="saved-list">
+				@savedListInner(page)
+			</div>
+		</div>
+	}
+}
+
+templ savedListInner(page SavedPage) {
+	if len(page.Cards) == 0 {
+		@ui.EmptyStateTitled(
+			"Nothing saved yet",
+			"Save any frustration to keep it here.",
+			"/",
+			"Browse frustrations",
+		)
+	} else {
+		@PainList(page.Cards)
+	}
+
+	<section class="mt-16" aria-labelledby="saved-browse">
+		<h2 id="saved-browse" class="display text-2xl sm:text-3xl">Browse</h2>
+		<div class="mt-6">
+			@ui.BrowseGrid(page.Browse)
+		</div>
+	</section>
+}
+
+// SavedRemoved is the HTMX response when a row is removed on the saved page. The
+// row itself fades out on the client; this updates the count and, when the list
+// becomes empty, replaces it with the empty state so zero is always explained.
+templ SavedRemoved(page SavedPage) {
+	<span id="saved-count" hx-swap-oob="true" class="meta" aria-live="polite">{ savedCountLabel(page.Count, page.Limit) }</span>
+	if page.Count == 0 {
+		<div id="saved-list" hx-swap-oob="outerHTML">
+			@savedListInner(page)
+		</div>
+	}
+}
+
+func savedCountLabel(count, limit int) string {
+	label := ui.FormatCount(count) + " SAVED"
+	if limit > 0 {
+		label += " / " + ui.FormatCount(limit)
+	}
+	return label
+}

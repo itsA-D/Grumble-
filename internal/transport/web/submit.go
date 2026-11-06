@@ -1,7 +1,6 @@
 package web
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -15,7 +14,7 @@ import (
 )
 
 func (s *Server) handleSubmitForm(w http.ResponseWriter, r *http.Request) {
-	s.render(w, r, http.StatusOK, views.Submit(s.submitView(r.Context(), views.SubmitValues{}, "", nil, nil, false)))
+	s.render(w, r, http.StatusOK, views.Submit(s.submitView(r, views.SubmitValues{}, "", nil, nil, false)))
 }
 
 func (s *Server) handleSubmit(w http.ResponseWriter, r *http.Request) {
@@ -53,7 +52,7 @@ func (s *Server) handleSubmit(w http.ResponseWriter, r *http.Request) {
 
 	heading, message := submittedCopy(res.Status)
 	s.render(w, r, http.StatusOK, views.Submitted(views.SubmittedPage{
-		Page:    s.page(r.Context(), seo.Submit(s.deps.ProductName)),
+		Page:    s.page(r, seo.Submit(s.deps.ProductName)),
 		Heading: heading,
 		Message: message,
 	}))
@@ -69,7 +68,7 @@ func (s *Server) renderSubmitError(w http.ResponseWriter, r *http.Request, value
 			kinds = append(kinds, k.Placeholder())
 		}
 		s.render(w, r, http.StatusUnprocessableEntity, views.Submit(
-			s.submitView(r.Context(), values, "", kinds, []string{pde.Preview}, true)))
+			s.submitView(r, values, "", kinds, []string{pde.Preview}, true)))
 		return
 	}
 
@@ -78,13 +77,13 @@ func (s *Server) renderSubmitError(w http.ResponseWriter, r *http.Request, value
 		status == http.StatusTooManyRequests ||
 		status == http.StatusForbidden {
 		s.render(w, r, status, views.Submit(
-			s.submitView(r.Context(), values, errorMessage(err), nil, nil, false)))
+			s.submitView(r, values, errorMessage(err), nil, nil, false)))
 		return
 	}
 	s.renderError(w, r, err)
 }
 
-func (s *Server) submitView(ctx context.Context, values views.SubmitValues, errMsg string, kinds, previews []string, showRedact bool) views.SubmitPage {
+func (s *Server) submitView(r *http.Request, values views.SubmitValues, errMsg string, kinds, previews []string, showRedact bool) views.SubmitPage {
 	notice := ""
 	if showRedact {
 		notice = "We noticed something that looks like personal information. Remove it, or post the redacted version below."
@@ -94,7 +93,7 @@ func (s *Server) submitView(ctx context.Context, values views.SubmitValues, errM
 		preview = previews[0]
 	}
 	return views.SubmitPage{
-		Page:             s.page(ctx, seo.Submit(s.deps.ProductName)),
+		Page:             s.page(r, seo.Submit(s.deps.ProductName)),
 		Categories:       taxonomy.Categories(),
 		Countries:        taxonomy.Countries(),
 		Values:           values,

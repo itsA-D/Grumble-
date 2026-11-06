@@ -1,180 +1,192 @@
 package views
 
+import "grumble/internal/transport/web/views/ui"
+
 // Submit is the submission form (FR-SUB-1 to FR-SUB-5, FR-MOD-3, FR-MOD-7).
 templ Submit(page SubmitPage) {
 	@Layout(page.Page) {
-		@SiteHeader(page.Page)
-		<main id="main" class="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
-			<h1 class="text-3xl font-bold tracking-tight">Post a frustration</h1>
-			<p class="mt-2 text-muted">Describe the problem in your own words. No account needed.</p>
-
-			if page.Error != "" {
-				<p role="alert" class="mt-6 rounded-md border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-ink">
-					{ page.Error }
-				</p>
-			}
-
-			if page.PIINotice != "" {
-				<div role="alert" class="mt-6 rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-ink">
-					<p>{ page.PIINotice }</p>
-					if len(page.PIIKinds) > 0 {
-						<p class="mt-2 text-muted">Possible personal data: { joinKinds(page.PIIKinds) }.</p>
-					}
-					if page.PIIPreview != "" {
-						<p class="mt-3 font-medium">Redacted version:</p>
-						<pre class="mt-1 overflow-x-auto whitespace-pre-wrap rounded border border-edge bg-canvas p-3 text-sm">{ page.PIIPreview }</pre>
-					}
-				</div>
-			}
-
-			<form method="post" action="/submit" class="mt-8 flex flex-col gap-6">
-				<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
-				<div>
-					<label for="body" class="block text-sm font-medium text-ink">What is the frustration?</label>
-					<textarea
-						id="body"
-						name="body"
-						required
-						minlength="20"
-						maxlength="2000"
-						rows="6"
-						class="mt-2 w-full rounded-md border border-edge bg-surface p-3 text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-					>{ page.Values.Body }</textarea>
-					<p class="mt-1 text-xs text-muted">At least 20 characters. Do not include names, emails or phone numbers.</p>
-				</div>
-
-				<div class="grid gap-6 sm:grid-cols-2">
-					<div>
-						<label for="category" class="block text-sm font-medium text-ink">Category</label>
-						<select
-							id="category"
-							name="category"
-							required
-							class="mt-2 w-full rounded-md border border-edge bg-surface p-3 text-ink"
-						>
-							<option value="">Choose a category</option>
-							for _, cat := range page.Categories {
-								<option
-									value={ cat.Slug }
-									if page.Values.CategorySlug == cat.Slug {
-										selected
-									}
-								>{ cat.Name }</option>
-							}
-						</select>
-					</div>
-					<div>
-						<label for="country" class="block text-sm font-medium text-ink">Country</label>
-						<select
-							id="country"
-							name="country"
-							required
-							class="mt-2 w-full rounded-md border border-edge bg-surface p-3 text-ink"
-						>
-							<option value="">Choose a country</option>
-							for _, country := range page.Countries {
-								<option
-									value={ country.Code }
-									if page.Values.CountryCode == country.Code {
-										selected
-									}
-								>{ country.Name }</option>
-							}
-						</select>
-					</div>
-				</div>
-
-				<fieldset class="rounded-md border border-edge p-4">
-					<legend class="px-1 text-sm font-medium text-ink">Optional: help us rank it</legend>
-					<div class="mt-2 grid gap-6 sm:grid-cols-2">
+		<div class="mx-auto w-full max-w-6xl flex-1 px-5 pb-20 pt-14 sm:px-8 sm:pt-20">
+			<div class="grid gap-10 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-start">
+				<div class="lg:sticky lg:top-24">
+					<p class="meta flex items-center gap-2">
+						<span class="inline-block h-1.5 w-1.5 bg-sig"></span>
+						Public board / new entry
+					</p>
+					<h1 class="display mt-5 text-4xl sm:text-5xl">Post a frustration</h1>
+					<p class="mt-5 text-sm leading-relaxed text-fg-soft">
+						Describe the problem in your own words. No account needed.
+					</p>
+					<dl class="mt-8 flex flex-col gap-5">
 						<div>
-							<label for="frequency" class="block text-sm font-medium text-ink">How often does it happen?</label>
-							<select id="frequency" name="frequency" class="mt-2 w-full rounded-md border border-edge bg-surface p-3 text-ink">
-								<option value="">Prefer not to say</option>
-								@option("daily", "Every day", page.Values.Frequency)
-								@option("weekly", "Most weeks", page.Values.Frequency)
-								@option("sometimes", "Now and then", page.Values.Frequency)
-							</select>
+							<dt class="meta">No account</dt>
+							<dd class="mt-1 text-sm leading-relaxed text-fg-soft">Post and vote without signing up.</dd>
 						</div>
 						<div>
-							<label for="disruption" class="block text-sm font-medium text-ink">How much does it disrupt life?</label>
-							<select id="disruption" name="disruption" class="mt-2 w-full rounded-md border border-edge bg-surface p-3 text-ink">
-								<option value="">Prefer not to say</option>
-								@option("mild", "A little", page.Values.Disruption)
-								@option("annoying", "Annoying", page.Values.Disruption)
-								@option("ruins_my_week", "Ruins my week", page.Values.Disruption)
-							</select>
-						</div>
-					</div>
-
-					<div class="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end">
-						<div class="flex items-center gap-2">
-							<input
-								id="would_pay"
-								name="would_pay"
-								type="checkbox"
-								value="1"
-								if page.Values.WouldPay {
-									checked
-								}
-								class="h-4 w-4 rounded border-edge"
-							/>
-							<label for="would_pay" class="text-sm text-ink">I would pay to fix this</label>
+							<dt class="meta">Plain text</dt>
+							<dd class="mt-1 text-sm leading-relaxed text-fg-soft">
+								Names, emails and phone numbers are flagged before anything is published.
+							</dd>
 						</div>
 						<div>
-							<label for="monthly_amount" class="block text-sm font-medium text-ink">Roughly how much per month (USD)</label>
-							<input
-								id="monthly_amount"
-								name="monthly_amount"
-								type="number"
-								min="0"
-								step="1"
-								value={ page.Values.MonthlyAmount }
-								class="mt-2 w-full rounded-md border border-edge bg-surface p-3 text-ink sm:w-40"
-							/>
+							<dt class="meta">Human review</dt>
+							<dd class="mt-1 text-sm leading-relaxed text-fg-soft">
+								Some submissions are held for a quick look before they appear.
+							</dd>
 						</div>
-					</div>
-				</fieldset>
+					</dl>
+				</div>
 
 				<div>
-					<label for="tried" class="block text-sm font-medium text-ink">What have you tried?</label>
-					<textarea
-						id="tried"
-						name="tried"
-						maxlength="500"
-						rows="3"
-						class="mt-2 w-full rounded-md border border-edge bg-surface p-3 text-ink"
-					>{ page.Values.Tried }</textarea>
+					if page.Error != "" {
+						<p role="alert" class="alert-error mb-4">{ page.Error }</p>
+					}
+
+					if page.PIINotice != "" {
+						<div role="alert" class="alert-warn mb-4">
+							<p>{ page.PIINotice }</p>
+							if len(page.PIIKinds) > 0 {
+								<p class="mt-2 text-fg-soft">Possible personal data: { joinKinds(page.PIIKinds) }.</p>
+							}
+							if page.PIIPreview != "" {
+								<p class="mt-3 font-medium">Redacted version:</p>
+								<pre class="mt-2 max-h-64 overflow-auto whitespace-pre-wrap border border-white/10 bg-ink/60 p-3 font-mono text-xs text-fg-soft">{ page.PIIPreview }</pre>
+							}
+						</div>
+					}
+
+					<form method="post" action="/submit" class="panel flex flex-col gap-7 p-5 sm:p-8">
+						<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+						<div>
+							<label for="body" class={ ui.LabelClass }>What is the frustration?</label>
+							<textarea
+								id="body"
+								name="body"
+								required
+								minlength="20"
+								maxlength="2000"
+								rows="6"
+								class={ ui.TextareaClass }
+							>{ page.Values.Body }</textarea>
+							<p class={ ui.HintClass }>At least 20 characters. Do not include names, emails or phone numbers.</p>
+						</div>
+
+						<div class="grid gap-6 sm:grid-cols-2">
+							<div>
+								<label for="category" class={ ui.LabelClass }>Category</label>
+								<select id="category" name="category" required class={ ui.SelectClass }>
+									<option value="">Choose a category</option>
+									for _, cat := range page.Categories {
+										<option
+											value={ cat.Slug }
+											if page.Values.CategorySlug == cat.Slug {
+												selected
+											}
+										>{ cat.Name }</option>
+									}
+								</select>
+							</div>
+							<div>
+								<label for="country" class={ ui.LabelClass }>Country</label>
+								<select id="country" name="country" required class={ ui.SelectClass }>
+									<option value="">Choose a country</option>
+									for _, country := range page.Countries {
+										<option
+											value={ country.Code }
+											if page.Values.CountryCode == country.Code {
+												selected
+											}
+										>{ country.Name }</option>
+									}
+								</select>
+							</div>
+						</div>
+
+						<fieldset class="border border-white/10 p-4">
+							<legend class="meta px-2">Optional / help us rank it</legend>
+							<div class="mt-2 grid gap-6 sm:grid-cols-2">
+								<div>
+									<label for="frequency" class={ ui.LabelClass }>How often does it happen?</label>
+									<select id="frequency" name="frequency" class={ ui.SelectClass }>
+										<option value="">Prefer not to say</option>
+										@option("daily", "Every day", page.Values.Frequency)
+										@option("weekly", "Most weeks", page.Values.Frequency)
+										@option("sometimes", "Now and then", page.Values.Frequency)
+									</select>
+								</div>
+								<div>
+									<label for="disruption" class={ ui.LabelClass }>How much does it disrupt life?</label>
+									<select id="disruption" name="disruption" class={ ui.SelectClass }>
+										<option value="">Prefer not to say</option>
+										@option("mild", "A little", page.Values.Disruption)
+										@option("annoying", "Annoying", page.Values.Disruption)
+										@option("ruins_my_week", "Ruins my week", page.Values.Disruption)
+									</select>
+								</div>
+							</div>
+
+							<div class="mt-5 flex flex-col gap-4 sm:flex-row sm:items-start">
+								<div class="flex items-center gap-2">
+									<input
+										id="would_pay"
+										name="would_pay"
+										type="checkbox"
+										value="1"
+										if page.Values.WouldPay {
+											checked
+										}
+										class={ ui.CheckClass }
+									/>
+									<label for="would_pay" class="text-sm text-fg-soft">I would pay to fix this</label>
+								</div>
+								<div class="sm:ml-auto">
+									<label for="monthly_amount" class={ ui.LabelClass }>Roughly how much per month (USD)</label>
+									<input
+										id="monthly_amount"
+										name="monthly_amount"
+										type="number"
+										min="0"
+										step="1"
+										value={ page.Values.MonthlyAmount }
+										class={ ui.InputClass, "sm:w-40" }
+									/>
+								</div>
+							</div>
+						</fieldset>
+
+						<div>
+							<label for="tried" class={ ui.LabelClass }>What have you tried?</label>
+							<textarea id="tried" name="tried" maxlength="500" rows="3" class={ ui.TextareaClass }>{ page.Values.Tried }</textarea>
+						</div>
+
+						if page.ShowRedact {
+							<div class="flex items-start gap-2">
+								<input
+									id="confirm_redaction"
+									name="confirm_redaction"
+									type="checkbox"
+									value="1"
+									class={ ui.CheckClass, "mt-0.5" }
+								/>
+								<label for="confirm_redaction" class="text-sm text-fg-soft">
+									Post the redacted version shown above.
+								</label>
+							</div>
+						}
+
+						if page.TurnstileSiteKey != "" {
+							<div class="cf-turnstile" data-sitekey={ page.TurnstileSiteKey }></div>
+						}
+
+						<div class="flex flex-wrap items-center gap-4">
+							@ui.SubmitButton(ui.Primary) {
+								Post frustration
+							}
+							<a href="/" class="meta text-link">Cancel</a>
+						</div>
+					</form>
 				</div>
-
-				if page.ShowRedact {
-					<div class="flex items-start gap-2">
-						<input
-							id="confirm_redaction"
-							name="confirm_redaction"
-							type="checkbox"
-							value="1"
-							class="mt-1 h-4 w-4 rounded border-edge"
-						/>
-						<label for="confirm_redaction" class="text-sm text-ink">
-							Post the redacted version shown above.
-						</label>
-					</div>
-				}
-
-				if page.TurnstileSiteKey != "" {
-					<div class="cf-turnstile" data-sitekey={ page.TurnstileSiteKey }></div>
-				}
-
-				<button
-					type="submit"
-					class="self-start rounded-md bg-brand px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-				>
-					Post frustration
-				</button>
-			</form>
-		</main>
-		@SiteFooter()
+			</div>
+		</div>
 	}
 }
 

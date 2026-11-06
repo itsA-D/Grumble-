@@ -27,7 +27,11 @@ type urlEntry struct {
 
 func (s *Server) handleSitemap(w http.ResponseWriter, r *http.Request) {
 	base := strings.TrimRight(s.deps.SiteURL, "/")
-	entries := []urlEntry{{Loc: base + "/"}}
+	entries := []urlEntry{
+		{Loc: base + "/"},
+		{Loc: base + "/trending"},
+		{Loc: base + "/map"},
+	}
 
 	// Category hubs, but only once they pass the indexability floor
 	// (FR-SEO-3).

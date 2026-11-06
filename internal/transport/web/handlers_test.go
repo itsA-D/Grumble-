@@ -16,9 +16,13 @@ import (
 	"grumble/internal/domain/pain"
 	"grumble/internal/domain/pii"
 	"grumble/internal/domain/taxonomy"
+	"grumble/internal/scoring"
+	"grumble/internal/service/bookmarks"
 	"grumble/internal/service/feed"
 	"grumble/internal/service/hubs"
+	"grumble/internal/service/mapsvc"
 	"grumble/internal/service/pains"
+	"grumble/internal/service/trending"
 	"grumble/internal/service/voting"
 )
 
@@ -26,11 +30,12 @@ import (
 
 type fakeFeed struct {
 	pains []pain.Pain
+	stats feed.Stats
 	err   error
 }
 
 func (f fakeFeed) List(context.Context, feed.Query) (feed.Page, error) {
-	return feed.Page{Pains: f.pains}, f.err
+	return feed.Page{Pains: f.pains, Stats: f.stats}, f.err
 }
 
 // feedRecorder captures the query the feed handler builds.
@@ -94,6 +99,86 @@ func (f fakeHubs) Get(context.Context, hubs.Query) (hubs.Hub, error) {
 	return f.hub, f.err
 }
 
+// fakeMap serves a canned map page and injects the selected side panel so the
+// handler-level contract (full page vs fragment) can be exercised without SQL.
+type fakeMap struct {
+	page   mapsvc.Page
+	err    error
+	record func(mapsvc.Query)
+}
+
+func (f fakeMap) Get(_ context.Context, q mapsvc.Query) (mapsvc.Page, error) {
+	if f.record != nil {
+		f.record(q)
+	}
+	if f.err != nil {
+		return mapsvc.Page{}, f.err
+	}
+	page := f.page
+	if q.Country != "" {
+		page.SidePanel.SelectedState = &mapsvc.SelectedSideState{
+			Country:     "United Kingdom",
+			CountryCode: q.Country,
+			PainCount:   12,
+			VoteCount:   3,
+			AvgUrgency:  64,
+			HasPains:    true,
+			TopPains: []mapsvc.TopPain{{
+				Slug:         "sample-pain",
+				Body:         "Late buses",
+				Category:     "Tech",
+				CategorySlug: "tech",
+				Urgency:      64,
+			}},
+		}
+	}
+	return page, nil
+}
+
+type fakeTrending struct {
+	page       trending.Page
+	categories []trending.Category
+	countries  []trending.Country
+	err        error
+}
+
+func (f fakeTrending) Get(context.Context, scoring.Window) (trending.Page, error) {
+	return f.page, f.err
+}
+
+func (f fakeTrending) Breakdown(context.Context, scoring.Window) ([]trending.Category, []trending.Country, error) {
+	return f.categories, f.countries, f.err
+}
+
+type fakeBookmarks struct {
+	pains  []pain.Pain
+	result bookmarks.Result
+	err    error
+}
+
+func (f fakeBookmarks) Save(context.Context, string, uuid.UUID) (bookmarks.Result, error) {
+	if f.err != nil {
+		return bookmarks.Result{}, f.err
+	}
+	if f.result == (bookmarks.Result{}) {
+		return bookmarks.Result{Saved: true, Count: 1, Limit: 5}, nil
+	}
+	return f.result, nil
+}
+
+func (f fakeBookmarks) Remove(context.Context, string, uuid.UUID) (bookmarks.Result, error) {
+	if f.err != nil {
+		return bookmarks.Result{}, f.err
+	}
+	return f.result, nil
+}
+
+func (f fakeBookmarks) List(context.Context, string, int) ([]pain.Pain, error) { return f.pains, nil }
+func (f fakeBookmarks) IDs(context.Context, string) (map[uuid.UUID]bool, error) {
+	return map[uuid.UUID]bool{}, nil
+}
+func (f fakeBookmarks) Limit() int { return 5 }
+
 type fakeIdentity struct{}
 
 func (fakeIdentity) SignAnonID(id string) string { return "t." + id }
@@ -126,10 +211,12 @@ func newTestEnv(t *testing.T, painsSvc PainsService, feedSvc FeedService, voteSv
 
 func newTestEnvEnv(t *testing.T, env string, painsSvc PainsService, feedSvc FeedService, voteSvc VotingService, hubSvc HubsService) *testEnv {
 	t.Helper()
-	buf := &bytes.Buffer{}
-	logger := slog.New(slog.NewJSONHandler(buf, &slog.HandlerOptions{Level: slog.LevelInfo}))
-	h := NewRouter(Deps{
-		Logger:             logger,
+	return newTestEnvFull(t, env, painsSvc, feedSvc, voteSvc, hubSvc, fakeMap{})
+}
+
+func newTestEnvFull(t *testing.T, env string, painsSvc PainsService, feedSvc FeedService, voteSvc VotingService, hubSvc HubsService, mapSvc MapService) *testEnv {
+	t.Helper()
+	return newTestEnvCore(t, Deps{
 		ProductName:        "Grumble",
 		SiteURL:            "https://example.test",
 		Env:                env,
@@ -138,10 +225,42 @@ func newTestEnvEnv(t *testing.T, env string, painsSvc PainsService, feedSvc Feed
 		Pains:              painsSvc,
 		Voting:             voteSvc,
 		Hubs:               hubSvc,
+		Map:                mapSvc,
+		Trending:           fakeTrending{},
+		Bookmarks:          fakeBookmarks{},
 		Identity:           fakeIdentity{},
 		NewAnonID:          func() string { return "test-anon" },
 	})
-	return &testEnv{handler: h, logs: buf}
+}
+
+func newTestEnvCore(t *testing.T, deps Deps) *testEnv {
+	t.Helper()
+	buf := &bytes.Buffer{}
+	if deps.Logger == nil {
+		deps.Logger = slog.New(slog.NewJSONHandler(buf, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	}
+	if deps.Identity == nil {
+		deps.Identity = fakeIdentity{}
+	}
+	if deps.NewAnonID == nil {
+		deps.NewAnonID = func() string { return "test-anon" }
+	}
+	if deps.ProductName == "" {
+		deps.ProductName = "Grumble"
+	}
+	if deps.SiteURL == "" {
+		deps.SiteURL = "https://example.test"
+	}
+	if deps.Env == "" {
+		deps.Env = "dev"
+	}
+	if deps.Trending == nil {
+		deps.Trending = fakeTrending{}
+	}
+	if deps.Bookmarks == nil {
+		deps.Bookmarks = fakeBookmarks{}
+	}
+	return &testEnv{handler: NewRouter(deps), logs: buf}
 }
 
 func (e *testEnv) get(t *testing.T, path string) *httptest.ResponseRecorder {
@@ -208,6 +327,24 @@ func TestFeedEmptyState(t *testing.T) {
 	}
 	if !strings.Contains(w.Body.String(), "Nothing has been posted") {
 		t.Fatalf("empty state copy missing")
+	}
+}
+
+func TestFeedRendersPublishedStats(t *testing.T) {
+	env := newTestEnv(t, fakePains{}, fakeFeed{
+		pains: []pain.Pain{samplePain("a perfectly ordinary frustration that is long enough")},
+		stats: feed.Stats{Pains: 1240, Countries: 19, Votes: 8421},
+	}, fakeVoting{}, fakeHubs{})
+
+	w := env.get(t, "/")
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+	got := w.Body.String()
+	for _, want := range []string{">1,240</dd>", ">19</dd>", ">8,421</dd>", "Static"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("stat strip missing %q", want)
+		}
 	}
 }
 
@@ -578,5 +715,130 @@ func TestServerErrorRenders500(t *testing.T) {
 	w := env.get(t, "/p/anything")
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want 500", w.Code)
+	}
+}
+
+// --- world map --------------------------------------------------------------
+
+func sampleMapPage() mapsvc.Page {
+	return mapsvc.Page{
+		Title:          "World Pain Map",
+		Description:    "Frustrations across the world.",
+		CountryPaths:   []mapsvc.CountryPathData{{ISO2: "GB", Name: "United Kingdom", PathD: "M0 0h10v10z", Link: "/country/GB", Hx: "/map/country/GB", PainCount: 12, Bucket: 3}},
+		PainTotal:      12,
+		CountryTotal:   1,
+		VoteTotal:      3,
+		Categories:     taxonomy.Categories(),
+		ActiveCategory: "",
+		Region:         taxonomy.RegionWorld,
+		Regions:        taxonomy.AllRegions(),
+		SidePanel: mapsvc.SidePanelData{DefaultState: mapsvc.DefaultSideState{
+			TopCountries: []mapsvc.TopCountry{{Code: "GB", Name: "United Kingdom", PainCount: 12}},
+		}},
+	}
+}
+
+func TestMapRendersWorld(t *testing.T) {
+	env := newTestEnvFull(t, "dev", fakePains{}, fakeFeed{}, fakeVoting{}, fakeHubs{}, fakeMap{page: sampleMapPage()})
+	w := env.get(t, "/map")
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+	body := w.Body.String()
+	for _, want := range []string{"World Pain Map", "data-country=\"GB\"", "Brighter = more submissions", "United Kingdom"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("body missing %q", want)
+		}
+	}
+}
+
+func TestMapCategoryFilterCanonicalisesToMapAndNoIndexes(t *testing.T) {
+	var got mapsvc.Query
+	env := newTestEnvFull(t, "dev", fakePains{}, fakeFeed{}, fakeVoting{}, fakeHubs{}, fakeMap{
+		page:   sampleMapPage(),
+		record: func(q mapsvc.Query) { got = q },
+	})
+	w := env.get(t, "/map?category=tech")
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+	if got.Category != "tech" {
+		t.Fatalf("service category = %q, want tech", got.Category)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, `content="noindex"`) {
+		t.Fatal("category-filtered map must be noindex")
+	}
+	if !strings.Contains(body, `rel="canonical" href="https://example.test/map"`) {
+		t.Fatal("category-filtered map must canonicalise to /map")
+	}
+}
+
+func TestMapUnknownCategoryFallsBackToAll(t *testing.T) {
+	var got mapsvc.Query
+	env := newTestEnvFull(t, "dev", fakePains{}, fakeFeed{}, fakeVoting{}, fakeHubs{}, fakeMap{
+		page:   sampleMapPage(),
+		record: func(q mapsvc.Query) { got = q },
+	})
+	if w := env.get(t, "/map?category=not-a-category"); w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+	if got.Category != "" {
+		t.Fatalf("service category = %q, want empty fallback", got.Category)
+	}
+}
+
+func TestMapCountryHTMXReturnsFragmentOnly(t *testing.T) {
+	env := newTestEnvFull(t, "dev", fakePains{}, fakeFeed{}, fakeVoting{}, fakeHubs{}, fakeMap{page: sampleMapPage()})
+	w := env.do(t, http.MethodGet, "/map/country/GB", "", map[string]string{"HX-Request": "true"})
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+	body := w.Body.String()
+	if strings.Contains(strings.ToLower(body), "<!doctype") || strings.Contains(strings.ToLower(body), "<html") {
+		t.Fatal("HTMX response must not include the document shell")
+	}
+	for _, want := range []string{"United Kingdom", "Late buses", "CLEAR"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("fragment missing %q", want)
+		}
+	}
+}
+
+func TestMapCountryPlainRequestReturnsFullPage(t *testing.T) {
+	env := newTestEnvFull(t, "dev", fakePains{}, fakeFeed{}, fakeVoting{}, fakeHubs{}, fakeMap{page: sampleMapPage()})
+	w := env.get(t, "/map/country/GB")
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(strings.ToLower(body), "<!doctype") {
+		t.Fatal("plain request should render the full page")
+	}
+	if !strings.Contains(body, "United Kingdom") {
+		t.Fatal("full page should include the selected country panel")
+	}
+}
+
+func TestMapUnknownCountryIs404(t *testing.T) {
+	env := newTestEnvFull(t, "dev", fakePains{}, fakeFeed{}, fakeVoting{}, fakeHubs{}, fakeMap{page: sampleMapPage()})
+	w := env.get(t, "/map/country/ZZ")
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", w.Code)
+	}
+}
+
+func TestMapSideClearHTMXReturnsDefaultPanel(t *testing.T) {
+	env := newTestEnvFull(t, "dev", fakePains{}, fakeFeed{}, fakeVoting{}, fakeHubs{}, fakeMap{page: sampleMapPage()})
+	w := env.do(t, http.MethodGet, "/map/side/clear", "", map[string]string{"HX-Request": "true"})
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "TOP COUNTRIES") {
+		t.Fatal("clear should return the default side panel")
+	}
+	if strings.Contains(body, "CLEAR") {
+		t.Fatal("default panel must not show the clear link")
 	}
 }

@@ -47,9 +47,10 @@ func (s *Server) handleFeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cards := s.cardsFromPains(page.Pains)
+	vm := s.page(r, seo.Feed(s.deps.ProductName, tab))
+	cards := s.cardsFromPains(page.Pains, s.savedSet(r.Context(), r), vm.CSRFToken)
 	s.render(w, r, http.StatusOK, views.Feed(views.FeedPage{
-		Page:           s.page(r.Context(), seo.Feed(s.deps.ProductName, tab)),
+		Page:           vm,
 		Tab:            tab,
 		TabLabel:       feedTabLabels[tab],
 		Categories:     taxonomy.Categories(),
@@ -60,6 +61,9 @@ func (s *Server) handleFeed(w http.ResponseWriter, r *http.Request) {
 		HasNext:        page.HasNext,
 		HasCursor:      cursor != "",
 		EmptyFeed:      len(cards) == 0,
+		PainTotal:      page.Stats.Pains,
+		CountryTotal:   page.Stats.Countries,
+		VoteTotal:      page.Stats.Votes,
 	}))
 }
 

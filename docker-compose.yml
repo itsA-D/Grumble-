@@ -5,7 +5,7 @@ x-app-env: &app-env
   DATABASE_URL: postgres://grumble:grumble@db:5432/grumble?sslmode=disable
   ANON_ID_SECRET: dev-anon-secret-change-me-0000
   IP_HASH_SALT: dev-ip-hash-salt-change-me0000
-  SITE_URL: http://localhost:3000
+  SITE_URL: http://localhost:8080
   REALTIME_MODE: memory
   RATELIMIT_MODE: memory
 
@@ -56,7 +56,7 @@ services:
       <<: *app-env
       HTTP_ADDR: ":3000"
     ports:
-      - "3000:3000"
+      - "8080:3000"
     depends_on:
       db:
         condition: service_healthy
@@ -78,3 +78,4 @@ services:
 
 volumes:
   db-data:
+

@@ -2,7 +2,9 @@ package views
 
 import (
 	"grumble/internal/domain/taxonomy"
+	"grumble/internal/service/mapsvc"
 	"grumble/internal/transport/web/seo"
+	"grumble/internal/transport/web/views/ui"
 )
 
 // Page holds the data every page template needs.
@@ -13,6 +15,9 @@ type Page struct {
 	SiteURL string
 	// ProductName is the display name shown in the chrome.
 	ProductName string
+	// Path is the request URI (path plus query) used to mark the active nav
+	// item, for example "/?tab=latest".
+	Path string
 	// CSRFToken is the per-identity synchronizer token embedded in forms
 	// (NFR-SEC-2).
 	CSRFToken string
@@ -20,6 +25,7 @@ type Page struct {
 
 // PainCard is a compact rendering of a pain in a list.
 type PainCard struct {
+	ID           string
 	Slug         string
 	Body         string
 	CategoryName string
@@ -28,6 +34,14 @@ type PainCard struct {
 	CountryCode  string
 	VoteCount    int
 	Urgency      int
+	// Rank is the 1-based trending position; zero hides the rank column.
+	Rank int
+	// Saved is the server-rendered state of the save toggle.
+	Saved bool
+	// CSRFToken is embedded in the save form.
+	CSRFToken string
+	// FromSaved makes a removal replace the row on the saved page.
+	FromSaved bool
 	// Seeded marks labelled demo content so it is never presented as organic.
 	Seeded bool
 }
@@ -48,6 +62,11 @@ type FeedPage struct {
 	HasNext    bool
 	HasCursor  bool
 	EmptyFeed  bool
+	// Totals behind the stat strip. They are published-only counts from the
+	// feed service, not a sum of the visible page.
+	PainTotal    int
+	CountryTotal int
+	VoteTotal    int
 }
 
 // DetailPage is one pain with its related list and vote control (FR-DET-1).
@@ -113,6 +132,35 @@ type SubmittedPage struct {
 	Message string
 }
 
+// WindowChip is one trending window link.
+type WindowChip struct {
+	Key    string
+	Label  string
+	Href   string
+	Active bool
+}
+
+// TrendingPage is the windowed trending board.
+type TrendingPage struct {
+	Page
+	Window     string
+	WindowKeys []WindowChip
+	Cards      []PainCard
+	Categories []ui.SideListItem
+	Countries  []ui.SideListItem
+	Browse     []ui.BrowseGroup
+}
+
+// SavedPage is the anonymous saved list. It is always noindex.
+type SavedPage struct {
+	Page
+	Cards      []PainCard
+	Count      int
+	Limit      int
+	Browse     []ui.BrowseGroup
+	LimitError string
+}
+
 // VoteButton is the HTMX-swappable vote control (FR-VOTE-1/2).
 type VoteButton struct {
 	PainID    string
@@ -128,4 +176,21 @@ type ErrorPageData struct {
 	Status  int
 	Heading string
 	Message string
+}
+
+// MapPageData is the view model for the world pain map (FR-MAP-1).
+type MapPageData struct {
+	Page
+	Subtitle       string
+	Countries      []mapsvc.CountryStat
+	CountryPaths   []mapsvc.CountryPathData
+	MaxPain        int
+	ActiveCategory string
+	Categories     []taxonomy.Category
+	Region         taxonomy.Region
+	Regions        []taxonomy.Region
+	SidePanel      mapsvc.SidePanelData
+	PainTotal      int
+	CountryTotal   int
+	VoteTotal      int
 }

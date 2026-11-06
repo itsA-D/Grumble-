@@ -7,9 +7,10 @@ import (
 
 // Hot-rank constants (PRD section 9.3).
 const (
-	commentWeight = 0.5
-	ageOffset     = 2.0
-	ageExponent   = 1.5
+	commentWeight  = 0.5
+	ageOffset      = 2.0
+	ageExponent    = 1.5
+	urgencyDivisor = 20.0
 )
 
 // Hot returns the trending rank: higher is hotter (PRD section 9.3). It decays
@@ -19,6 +20,6 @@ func Hot(votes7d, comments7d, urgency int, age time.Duration) float64 {
 	if ageHours < 0 {
 		ageHours = 0
 	}
-	numerator := float64(votes7d) + commentWeight*float64(comments7d) + float64(urgency)/20.0
+	numerator := float64(votes7d) + commentWeight*float64(comments7d) + float64(urgency)/urgencyDivisor
 	return numerator / math.Pow(ageHours+ageOffset, ageExponent)
 }

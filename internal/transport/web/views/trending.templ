@@ -1,0 +1,66 @@
+package views
+
+import "grumble/internal/transport/web/views/ui"
+
+// Trending is the windowed trending board. HTMX swaps only TrendingMain so the
+// shell and its nav are never re-sent.
+templ Trending(page TrendingPage) {
+	@Layout(page.Page) {
+		@TrendingMain(page)
+	}
+}
+
+// TrendingMain is the swap target for the window chips.
+templ TrendingMain(page TrendingPage) {
+	<div id="trending-main">
+		<div class="mx-auto w-full max-w-6xl flex-1 px-5 pb-20 pt-10 sm:px-8 sm:pt-14">
+			@ui.PageHeader("LIVE RANKING", "Trending frustrations", "What is gaining ground right now, ranked by heat across votes, urgency and age.")
+			<nav aria-label="Trending window" class="chip-scroll mt-2">
+				for _, chip := range page.WindowKeys {
+					<a
+						href={ chip.Href }
+						hx-get={ chip.Href }
+						hx-target="#trending-main"
+						hx-swap="outerHTML"
+						hx-push-url="true"
+						class={ "chip", templ.KV("chip-active", chip.Active) }
+						if chip.Active {
+							aria-current="page"
+						}
+					>{ chip.Label }</a>
+				}
+			</nav>
+
+			<div class="mt-10 grid gap-10 min-[900px]:grid-cols-[minmax(0,1fr)_300px] min-[900px]:items-start">
+				<section aria-label="Ranked frustrations">
+					if len(page.Cards) == 0 {
+						@ui.EmptyStateTitled(
+							"No signal in this window",
+							"Try a longer window or post the first one.",
+							"/submit",
+							"Post a frustration",
+						)
+					} else {
+						@PainList(page.Cards)
+					}
+				</section>
+
+				<aside class="grid gap-8 min-[900px]:sticky min-[900px]:top-24">
+					@ui.Panel() {
+						<div class="space-y-8">
+							@ui.SideList("TOP COUNTRIES", page.Countries, "No country signal in this window.")
+							@ui.SideList("TOP CATEGORIES", page.Categories, "No category signal in this window.")
+						</div>
+					}
+				</aside>
+			</div>
+
+			<section class="mt-16" aria-labelledby="trending-browse">
+				<h2 id="trending-browse" class="display text-2xl sm:text-3xl">Browse</h2>
+				<div class="mt-6">
+					@ui.BrowseGrid(page.Browse)
+				</div>
+			</section>
+		</div>
+	</div>
+}

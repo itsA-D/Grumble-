@@ -1,0 +1,329 @@
+package views
+
+import (
+	"strconv"
+	"strings"
+
+	"grumble/internal/domain/taxonomy"
+	"grumble/internal/service/mapsvc"
+	"grumble/internal/transport/web/views/ui"
+)
+
+// MapPage renders the world pain map (FR-MAP-1).
+templ MapPage(page MapPageData) {
+	@Layout(page.Page) {
+		<script src="/static/map.js" defer></script>
+		<div class="relative z-10 mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 sm:py-12">
+			@ui.PageHeader("SIGNAL BOARD", "World Pain Map", page.Subtitle)
+
+			if page.PainTotal == 0 {
+				<div class="mb-8">
+					@ui.ButtonLink("/submit", ui.Primary) { Post a frustration }
+				</div>
+			}
+
+			@MapSection(page)
+
+			@ui.StatStrip(page.PainTotal, page.CountryTotal, page.VoteTotal, false)
+
+			<!-- Accessible fallback: the same data as a table -->
+			<div class="mt-10">
+				<details class="text-sm text-fg-soft">
+					<summary class="meta cursor-pointer">ALL COUNTRIES</summary>
+					<table class="mt-4 w-full text-left">
+						<caption class="sr-only">All countries by published pain count</caption>
+						<thead>
+							<tr class="text-dim">
+								<th scope="col" class="py-2 pr-4 font-normal">Country</th>
+								<th scope="col" class="py-2 font-normal">Pains</th>
+							</tr>
+						</thead>
+						<tbody>
+							for _, c := range page.Countries {
+								<tr class="border-t border-white/10">
+									<td class="py-2 pr-4">{ countryName(c.Country) }</td>
+									<td class="py-2 font-mono text-[12px]">{ formatCount(c.PainCount) }</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</details>
+			</div>
+		</div>
+	}
+}
+
+// MapSection is the HTMX-swappable region. Category chip requests replace only
+// this node, so the document shell and its navigation are never re-rendered.
+templ MapSection(page MapPageData) {
+	<div id="map-section" class="mt-8">
+		<!-- Region chips (client-side view presets, no request) -->
+		<div class="mb-3 overflow-x-auto pb-2 -mx-5 sm:-mx-8 px-5 sm:px-8">
+			<div class="flex gap-2 min-w-max" role="group" aria-label="Region view">
+				for _, r := range page.Regions {
+					@RegionChip(r, page.Region)
+				}
+			</div>
+		</div>
+
+		<!-- Category chips (server filter) -->
+		<div class="mb-6 overflow-x-auto pb-2 -mx-5 sm:-mx-8 px-5 sm:px-8">
+			<div class="flex gap-2 min-w-max" role="group" aria-label="Category filter">
+				@CategoryChips(page.Categories, page.ActiveCategory)
+			</div>
+		</div>
+
+		<!-- Map + Side Panel grid -->
+		<div class="grid grid-cols-1 gap-6 lg:grid-cols-12">
+			<div class="lg:col-span-8">
+				@MapPanel(page)
+			</div>
+			<div class="lg:col-span-4">
+				@SidePanel(page.SidePanel)
+			</div>
+		</div>
+	</div>
+}
+
+// RegionChip is a client-side map view preset.
+templ RegionChip(r taxonomy.Region, active taxonomy.Region) {
+	<button
+		type="button"
+		class={ "chip", templ.KV("chip-active", r == active) }
+		data-map-region={ string(r) }
+		data-viewbox={ viewBoxString(r) }
+		aria-pressed={ boolAttr(r == active) }
+	>
+		{ taxonomy.RegionName(r) }
+	</button>
+}
+
+// CategoryChips renders the "All" chip and one chip per category. Selecting a
+// chip swaps the whole map view so active states and fills stay in sync.
+templ CategoryChips(categories []taxonomy.Category, activeCategory string) {
+	<a
+		href="/map"
+		hx-get="/map"
+		hx-target="#map-section"
+		hx-select="#map-section"
+		hx-swap="outerHTML"
+		hx-push-url="true"
+		class={ "chip", templ.KV("chip-active", activeCategory == "") }
+	>All</a>
+	for _, cat := range categories {
+		<a
+			href={ "/map?category=" + cat.Slug }
+			hx-get={ "/map?category=" + cat.Slug }
+			hx-target="#map-section"
+			hx-select="#map-section"
+			hx-swap="outerHTML"
+			hx-push-url="true"
+			class={ "chip", templ.KV("chip-active", cat.Slug == activeCategory) }
+		>{ cat.Name }</a>
+	}
+}
+
+// MapPanel renders the SVG map with controls, hint, legend and tooltip.
+templ MapPanel(page MapPageData) {
+	@ui.GlassBar(false) {
+		<div class="relative aspect-[2/1] overflow-hidden">
+			<svg
+				id="map-svg"
+				viewBox="0 0 880 440"
+				preserveAspectRatio="xMidYMid meet"
+				class="w-full h-full touch-none"
+				role="img"
+				aria-label="World pain intensity map. Brighter countries have more frustrations."
+				tabindex="-1"
+			>
+				for _, p := range page.CountryPaths {
+					<a
+						href={ p.Link }
+						hx-get={ p.Hx }
+						hx-target="#map-side"
+						hx-push-url="false"
+						class="country-path"
+						aria-label={ p.Name + ", " + formatCount(p.PainCount) + " frustrations" }
+					>
+						<path
+							d={ p.PathD }
+							class={ "country-shape bucket-" + strconv.Itoa(p.Bucket) }
+							stroke="rgb(255 255 255 / 0.18)"
+							stroke-width="0.5"
+							vector-effect="non-scaling-stroke"
+							data-country={ p.ISO2 }
+							data-name={ p.Name }
+							data-pains={ strconv.Itoa(p.PainCount) }
+							data-bucket={ strconv.Itoa(p.Bucket) }
+						></path>
+					</a>
+				}
+			</svg>
+
+			<!-- Zoom controls -->
+			<div class="absolute top-3 right-3 flex flex-col gap-1" role="group" aria-label="Map controls">
+				<button type="button" id="map-zoom-in" class="btn btn-ghost min-h-[36px] min-w-[36px] p-2 font-mono text-[13px]" aria-label="Zoom in">+</button>
+				<button type="button" id="map-zoom-out" class="btn btn-ghost min-h-[36px] min-w-[36px] p-2 font-mono text-[13px]" aria-label="Zoom out">−</button>
+				<button type="button" id="map-reset" class="btn btn-ghost min-h-[36px] px-2 py-1 font-mono text-[10px] uppercase tracking-[0.06em]" aria-label="Reset view">RESET</button>
+			</div>
+
+			<!-- Zoom hint -->
+			<p id="map-hint" class="absolute bottom-3 left-3 font-mono text-[11px] tracking-[0.03em] text-dim pointer-events-none" aria-live="polite">
+				1.0x / drag to pan / scroll to zoom
+			</p>
+
+			<!-- Legend -->
+			<div class="absolute bottom-3 right-3 flex flex-col items-end gap-1.5 pointer-events-none">
+				<p class="font-mono text-[10px] uppercase tracking-[0.08em] text-dim">INTENSITY</p>
+				<div class="flex items-center gap-1.5">
+					<span class="map-legend__swatch map-legend__swatch--0"></span>
+					<span class="map-legend__swatch map-legend__swatch--1"></span>
+					<span class="map-legend__swatch map-legend__swatch--2"></span>
+					<span class="map-legend__swatch map-legend__swatch--3"></span>
+					<span class="map-legend__swatch map-legend__swatch--4"></span>
+					<span class="map-legend__swatch map-legend__swatch--5"></span>
+				</div>
+				<p class="font-mono text-[10px] text-dim">Brighter = more submissions</p>
+			</div>
+
+			<!-- Tooltip -->
+			<div
+				id="map-tooltip"
+				class="glass-bar pointer-events-none absolute whitespace-nowrap px-3 py-2 font-mono text-[12px] uppercase tracking-[0.04em] text-fg opacity-0 transition-opacity duration-100"
+				role="tooltip"
+				aria-hidden="true"
+			></div>
+		</div>
+	}
+}
+
+// SidePanel wraps the swappable side panel region.
+templ SidePanel(data mapsvc.SidePanelData) {
+	<div
+		id="map-side"
+		class="map-side"
+		aria-live="polite"
+	>
+		@MapSidePanelContent(data)
+	</div>
+}
+
+// MapSidePanel is the HTMX fragment for the side panel.
+templ MapSidePanel(data mapsvc.SidePanelData) {
+	@MapSidePanelContent(data)
+}
+
+templ MapSidePanelContent(data mapsvc.SidePanelData) {
+	if data.SelectedState != nil {
+		@SelectedCountryPanel(*data.SelectedState, data.Category)
+	} else {
+		@DefaultSidePanel(data.DefaultState)
+	}
+}
+
+templ DefaultSidePanel(state mapsvc.DefaultSideState) {
+	<div class="space-y-6">
+		<p class="text-fg-soft text-sm">Select a country on the map to see its top frustrations and stats.</p>
+		<div class="space-y-4">
+			<p class="meta">TOP COUNTRIES</p>
+			if len(state.TopCountries) > 0 {
+				<ul class="space-y-2" role="list">
+					for _, c := range state.TopCountries {
+						<li class="flex items-baseline justify-between gap-3">
+							<a href={ "/country/" + c.Code } class="text-link truncate">{ c.Name }</a>
+							<span class="font-mono text-[11px] text-fg-soft">{ formatCount(c.PainCount) }</span>
+						</li>
+					}
+				</ul>
+			} else {
+				<p class="text-fg-soft text-sm">Awaiting first signal.</p>
+			}
+		</div>
+	</div>
+}
+
+templ SelectedCountryPanel(state mapsvc.SelectedSideState, category string) {
+	<div class="space-y-6">
+		<div class="flex items-start justify-between gap-4">
+			<div class="min-w-0">
+				<h2 class="display text-[28px] text-fg sm:text-[32px]">{ state.Country }</h2>
+				<div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-fg-soft">
+					<span>{ formatCount(state.PainCount) } pains</span>
+					<span aria-hidden="true">/</span>
+					<span>{ formatCount(state.VoteCount) } votes</span>
+					<span aria-hidden="true">/</span>
+					<span class="text-sig">Avg urgency { strconv.Itoa(state.AvgUrgency) }</span>
+				</div>
+			</div>
+			<a
+				href={ clearHref(category) }
+				hx-get={ clearHref(category) }
+				hx-target="#map-side"
+				class="text-link shrink-0 whitespace-nowrap font-mono text-[11px] uppercase tracking-[0.04em]"
+			>CLEAR</a>
+		</div>
+
+		if state.HasPains {
+			<div class="space-y-3">
+				for _, p := range state.TopPains {
+					@ui.PainRow(ui.SidePain{
+						Slug:         p.Slug,
+						Body:         p.Body,
+						Category:     p.Category,
+						CategorySlug: p.CategorySlug,
+						Urgency:      p.Urgency,
+						Seeded:       p.Seeded,
+					})
+				}
+			</div>
+		} else {
+			@ui.EmptyState(
+				"No signal from "+state.Country+" yet.",
+				"/submit",
+				"Post a frustration",
+			)
+		}
+
+		@ui.ButtonLink("/country/"+state.CountryCode, ui.Ghost) { OPEN COUNTRY }
+	</div>
+}
+
+// countryName returns the human-readable name for a country code.
+func countryName(code string) string {
+	c, ok := taxonomy.CountryByCode(code)
+	if !ok {
+		return code
+	}
+	return c.Name
+}
+
+// viewBoxString formats a region preset for the SVG viewBox attribute.
+func viewBoxString(r taxonomy.Region) string {
+	vb := taxonomy.RegionViewBox(r)
+	parts := make([]string, 4)
+	for i, v := range vb {
+		parts[i] = strconv.FormatFloat(v, 'f', 0, 64)
+	}
+	return strings.Join(parts, " ")
+}
+
+// boolAttr renders a boolean ARIA attribute.
+func boolAttr(v bool) string {
+	if v {
+		return "true"
+	}
+	return "false"
+}
+
+// clearHref preserves the active category when clearing the side panel.
+func clearHref(category string) string {
+	if category == "" {
+		return "/map/side/clear"
+	}
+	return "/map/side/clear?category=" + category
+}
+
+// formatCount is a thin wrapper so templates can call the exported helper.
+func formatCount(n int) string {
+	return ui.FormatCount(n)
+}

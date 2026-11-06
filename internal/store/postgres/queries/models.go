@@ -9,6 +9,28 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Bookmark struct {
+	OwnerKey  string             `json:"owner_key"`
+	PainID    uuid.UUID          `json:"pain_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type CountryStat struct {
+	Country    string             `json:"country"`
+	Category   string             `json:"category"`
+	PainCount  int32              `json:"pain_count"`
+	VoteCount  int32              `json:"vote_count"`
+	AvgUrgency int32              `json:"avg_urgency"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CountryStatsTotal struct {
+	Country    string `json:"country"`
+	PainCount  int32  `json:"pain_count"`
+	VoteCount  int32  `json:"vote_count"`
+	AvgUrgency int32  `json:"avg_urgency"`
+}
+
 type Pain struct {
 	ID             uuid.UUID          `json:"id"`
 	Slug           string             `json:"slug"`

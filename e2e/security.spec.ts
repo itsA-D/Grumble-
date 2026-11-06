@@ -60,14 +60,24 @@ test('pages load, forms submit, and HTMX votes run with no CSP violations', asyn
   await page.goto('/');
   await page.goto('/submit');
   await page.goto('/?tab=latest');
+  await page.goto('/c/tech');
+  await page.goto('/country/US');
+  await page.goto('/does-not-exist');
 
   // HTMX is loaded and functional under the CSP.
   const htmxType = await page.evaluate(() => typeof (window as { htmx?: unknown }).htmx);
   expect(htmxType).toBe('object');
 
+  await page.goto('/?tab=latest');
   await page.locator('article').first().getByRole('link').first().click();
   await page.getByRole('button', { name: /vote/i }).click();
   await expect(page.getByRole('button', { name: /vote/i })).toBeVisible();
+
+  // The map runs its own external script and must stay CSP-clean too.
+  await page.goto('/map');
+  await expect(page.locator('#map-svg')).toBeVisible();
+  await page.goto('/map?category=housing');
+  await expect(page.locator('#map-svg')).toBeVisible();
 
   expect(violations).toEqual([]);
 });

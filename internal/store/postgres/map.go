@@ -64,6 +64,40 @@ func painFromTrendingRow(r queries.ListPublishedTrendingCandidatesRow) pain.Pain
 	}
 }
 
+func painFromWindowRow(r queries.ListPublishedTrendingWindowRow) pain.Pain {
+	return pain.Pain{
+		ID:          r.ID,
+		Slug:        r.Slug,
+		Body:        r.Body,
+		Category:    category(r.Category),
+		Country:     country(r.Country),
+		Details:     detailsFrom(r.Frequency, r.Disruption, r.WouldPay, r.MonthlyAmount, r.Tried),
+		Status:      pain.Status(r.Status),
+		VoteCount:   int(r.VoteCount),
+		Urgency:     int(r.Urgency),
+		Seeded:      r.Seeded,
+		CreatedAt:   timeOf(r.CreatedAt),
+		PublishedAt: optionalTime(r.PublishedAt),
+	}
+}
+
+func painFromBookmarkRow(r queries.ListBookmarksRow) pain.Pain {
+	return pain.Pain{
+		ID:          r.ID,
+		Slug:        r.Slug,
+		Body:        r.Body,
+		Category:    category(r.Category),
+		Country:     country(r.Country),
+		Details:     detailsFrom(r.Frequency, r.Disruption, r.WouldPay, r.MonthlyAmount, r.Tried),
+		Status:      pain.Status(r.Status),
+		VoteCount:   int(r.VoteCount),
+		Urgency:     int(r.Urgency),
+		Seeded:      r.Seeded,
+		CreatedAt:   timeOf(r.CreatedAt),
+		PublishedAt: optionalTime(r.PublishedAt),
+	}
+}
+
 func mapPublished(rows []queries.PublishedPain, err error) ([]pain.Pain, error) {
 	if err != nil {
 		return nil, err

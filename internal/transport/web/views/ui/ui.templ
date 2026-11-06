@@ -1,0 +1,145 @@
+package ui
+
+// GlassBar is the translucent surface used by the header, search bar and rows.
+// It has no radius, border or hard shadow; the photograph shows through it.
+templ GlassBar(interactive bool) {
+	<div class={ "glass-bar", templ.KV("glass-bar-interactive", interactive) }>
+		{ children... }
+	</div>
+}
+
+// Panel is a denser glass surface for forms and secondary content.
+templ Panel() {
+	<div class="panel">
+		{ children... }
+	</div>
+}
+
+// ButtonLink is a navigational call to action.
+templ ButtonLink(href, variant string) {
+	<a
+		href={ href }
+		class={ "btn", templ.KV("btn-primary", variant == Primary), templ.KV("btn-ghost", variant != Primary) }
+	>
+		{ children... }
+	</a>
+}
+
+// SubmitButton is the form-submitting variant.
+templ SubmitButton(variant string) {
+	<button
+		type="submit"
+		class={ "btn", templ.KV("btn-primary", variant == Primary), templ.KV("btn-ghost", variant != Primary) }
+	>
+		{ children... }
+	</button>
+}
+
+// Chip is a filter or tab link. The active state uses the signal colour.
+templ Chip(href string, active bool) {
+	<a href={ href } class={ "chip", templ.KV("chip-active", active) }>
+		{ children... }
+	</a>
+}
+
+// Tag labels seeded or otherwise non-organic content.
+templ Tag(label string) {
+	<span class="tag">{ label }</span>
+}
+
+// StatStrip summarises the published board. SSE is not wired yet, so the last
+// cell stays honestly OFF instead of implying a live connection.
+templ StatStrip(pains, countries, votes int, live bool) {
+	<dl class="mt-8 grid grid-cols-2 border border-white/10 bg-white/[0.02] sm:grid-cols-4">
+		<div class="stat">
+			<dt class="meta">Pains</dt>
+			<dd class="stat-value">{ FormatCount(pains) }</dd>
+		</div>
+		<div class="stat">
+			<dt class="meta">Countries</dt>
+			<dd class="stat-value">{ FormatCount(countries) }</dd>
+		</div>
+		<div class="stat">
+			<dt class="meta">Votes</dt>
+			<dd class="stat-value">{ FormatCount(votes) }</dd>
+		</div>
+		<div class="stat">
+			<dt class="meta">Feed</dt>
+			<dd class="mt-2 flex items-center gap-2 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-fg-soft">
+				<span class={ "h-1.5 w-1.5", templ.KV("bg-sig", live), templ.KV("bg-dim", !live) }></span>
+				if live {
+					Live
+				} else {
+					Static
+				}
+			</dd>
+		</div>
+	</dl>
+}
+
+// PageHeader is the standard page header with eyebrow, title and subtitle.
+templ PageHeader(eyebrow, title, subtitle string) {
+	<header class="mb-8 sm:mb-12">
+		<p class="meta mb-3">{ eyebrow }</p>
+		<h1 class="display text-[48px] sm:text-[64px] lg:text-[72px] text-fg mb-4">{ title }</h1>
+		if subtitle != "" {
+			<p class="text-fg-soft text-base sm:text-lg max-w-2xl">{ subtitle }</p>
+		}
+	</header>
+}
+
+// SideList renders a list of links in the side panel.
+templ SideList(title string, items []SideListItem, emptyCopy string) {
+	<div class="space-y-4">
+		<p class="meta">{ title }</p>
+		if len(items) > 0 {
+			<ul class="space-y-2" role="list">
+				for _, item := range items {
+					<li>
+						<a href={ item.Href } class="text-link block truncate">{ item.Label }</a>
+						if item.Count > 0 {
+							<span class="ml-2 font-mono text-[11px] text-fg-soft">({ FormatCount(item.Count) })</span>
+						}
+					</li>
+				}
+			</ul>
+		} else {
+			<p class="text-fg-soft text-sm">{ emptyCopy }</p>
+		}
+	</div>
+}
+
+// PainRow renders a single pain in the side panel.
+templ PainRow(pain SidePain) {
+	<article class="pain-row group">
+		<h3 class="font-display text-[14px] font-semibold leading-[1.5] tracking-[-0.01em] text-fg mb-2">
+			<a href={ "/p/" + pain.Slug } class="transition-colors group-hover:text-sig">{ pain.Body }</a>
+		</h3>
+		<div class="meta flex flex-wrap items-center gap-x-3 gap-y-2">
+			<a href={ "/c/" + pain.CategorySlug }>{ pain.Category }</a>
+			<span aria-hidden="true">/</span>
+			<span class="text-sig">Urgency { pain.Urgency }</span>
+			if pain.Seeded {
+				@Tag("Seed")
+			}
+		</div>
+	</article>
+}
+
+// EmptyState renders an empty state with optional action button.
+templ EmptyState(message string, actionHref string, actionLabel string) {
+	<div class="text-center py-12 sm:py-16">
+		<p class="text-fg-soft text-base sm:text-lg mb-6 max-w-sm mx-auto">{ message }</p>
+		if actionHref != "" {
+			@ButtonLink(actionHref, Primary) { { actionLabel } }
+		}
+	</div>
+}
+
+// LegendSwatch is a color swatch for the map legend.
+templ LegendSwatch(label string, color string) {
+	<div class="flex items-center gap-2">
+		<span class="h-4 w-4" style={ "background-color: " + color }></span>
+		<span class="font-mono text-[11px] text-fg-soft">{ label }</span>
+	</div>
+}

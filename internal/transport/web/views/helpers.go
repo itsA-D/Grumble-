@@ -39,14 +39,6 @@ func voteLabel(v VoteButton) string {
 	return countLabel(v.VoteCount, "vote", "votes")
 }
 
-// tabClass styles the active feed tab differently from the others.
-func tabClass(active bool) string {
-	if active {
-		return "rounded-md bg-brand px-3 py-1.5 text-sm font-semibold text-white"
-	}
-	return "rounded-md border border-edge px-3 py-1.5 text-sm text-muted transition hover:text-ink"
-}
-
 // feedLink builds a feed URL preserving the tab and the active filters. An empty
 // cursor starts at the newest page of the ordering.
 func feedLink(tab, category, search, cursor string) string {
@@ -62,14 +54,6 @@ func feedLink(tab, category, search, cursor string) string {
 		v.Set("cursor", cursor)
 	}
 	return "/?" + v.Encode()
-}
-
-// chipClass styles an active or inactive category filter chip.
-func chipClass(active bool) string {
-	if active {
-		return "rounded-full bg-brand px-3 py-1 text-sm font-medium text-white"
-	}
-	return "rounded-full border border-edge px-3 py-1 text-sm text-muted transition hover:text-ink"
 }
 
 // joinKinds renders the PII kind labels as a readable list.

@@ -84,6 +84,40 @@ WHERE (@category::text = '' OR p.category = @category::text)
 ORDER BY p.created_at DESC
 LIMIT @page_limit;
 
+-- name: ListPublishedTrendingWindow :many
+-- Candidate shortlist for a trending window. Postgres bounds the work to the
+-- 50 most-voted/urgent published pains created inside the window; the pure
+-- scoring package then applies the hot rank and its deterministic tie-breaks.
+-- votes_window counts votes inside @window_start.
+SELECT p.id, p.slug, p.body, p.category, p.country, p.status, p.frequency,
+       p.disruption, p.would_pay, p.monthly_amount, p.tried, p.vote_count,
+       p.urgency, p.seeded, p.created_at, p.published_at,
+       (SELECT count(*) FROM votes v
+         WHERE v.pain_id = p.id
+           AND v.created_at >= @window_start::timestamptz) AS votes_window
+FROM published_pains p
+WHERE p.created_at >= @window_start::timestamptz
+ORDER BY p.vote_count DESC, p.urgency DESC, p.created_at DESC, p.id DESC
+LIMIT @page_limit;
+
+-- name: ListTrendingCategoryCounts :many
+-- Category counts inside the same window, for the trending sidebar.
+SELECT category, count(*)::int AS pain_count
+FROM published_pains
+WHERE created_at >= @window_start::timestamptz
+GROUP BY category
+ORDER BY pain_count DESC, category
+LIMIT @page_limit;
+
+-- name: ListTrendingCountryCounts :many
+-- Country counts inside the same window, for the trending sidebar.
+SELECT country, count(*)::int AS pain_count
+FROM published_pains
+WHERE created_at >= @window_start::timestamptz
+GROUP BY country
+ORDER BY pain_count DESC, country
+LIMIT @page_limit;
+
 -- name: ListPublishedByCategory :many
 SELECT * FROM published_pains
 WHERE category = $1
@@ -110,6 +144,22 @@ SELECT count(*) FROM published_pains WHERE category = $1;
 
 -- name: CountPublishedByCountry :one
 SELECT count(*) FROM published_pains WHERE country = $1;
+
+-- name: CountPublishedCountries :one
+-- Distinct countries on the public board, for the home stat strip.
+SELECT count(DISTINCT country) FROM published_pains;
+
+-- name: CountPublishedVotes :one
+-- Cached vote total across published pains only.
+SELECT COALESCE(sum(vote_count), 0)::bigint FROM published_pains;
+
+-- name: ListPublishedByCategoryWithUrgency :many
+-- All published pains with urgency for a category (or all if empty).
+-- Used by the country-stats job to recompute the read model.
+SELECT country, vote_count, urgency
+FROM published_pains
+WHERE (@category::text = '' OR category = @category::text)
+ORDER BY country, urgency DESC, vote_count DESC;
 
 -- name: CreateSeededPain :one
 -- Inserts a published, labelled seed pain. ON CONFLICT (slug) DO NOTHING makes

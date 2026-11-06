@@ -34,6 +34,18 @@ func (q *Queries) CountPublishedByCountry(ctx context.Context, country string) (
 	return count, err
 }
 
+const countPublishedCountries = `-- name: CountPublishedCountries :one
+SELECT count(DISTINCT country) FROM published_pains
+`
+
+// Distinct countries on the public board, for the home stat strip.
+func (q *Queries) CountPublishedCountries(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countPublishedCountries)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countPublishedTotal = `-- name: CountPublishedTotal :one
 SELECT count(*) FROM published_pains
 `
@@ -43,6 +55,18 @@ func (q *Queries) CountPublishedTotal(ctx context.Context) (int64, error) {
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const countPublishedVotes = `-- name: CountPublishedVotes :one
+SELECT COALESCE(sum(vote_count), 0)::bigint FROM published_pains
+`
+
+// Cached vote total across published pains only.
+func (q *Queries) CountPublishedVotes(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countPublishedVotes)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const createPain = `-- name: CreatePain :one
@@ -303,6 +327,41 @@ func (q *Queries) ListPublishedByCategory(ctx context.Context, arg ListPublished
 			&i.CreatedAt,
 			&i.PublishedAt,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublishedByCategoryWithUrgency = `-- name: ListPublishedByCategoryWithUrgency :many
+SELECT country, vote_count, urgency
+FROM published_pains
+WHERE ($1::text = '' OR category = $1::text)
+ORDER BY country, urgency DESC, vote_count DESC
+`
+
+type ListPublishedByCategoryWithUrgencyRow struct {
+	Country   string `json:"country"`
+	VoteCount int32  `json:"vote_count"`
+	Urgency   int32  `json:"urgency"`
+}
+
+// All published pains with urgency for a category (or all if empty).
+// Used by the country-stats job to recompute the read model.
+func (q *Queries) ListPublishedByCategoryWithUrgency(ctx context.Context, category string) ([]ListPublishedByCategoryWithUrgencyRow, error) {
+	rows, err := q.db.Query(ctx, listPublishedByCategoryWithUrgency, category)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublishedByCategoryWithUrgencyRow
+	for rows.Next() {
+		var i ListPublishedByCategoryWithUrgencyRow
+		if err := rows.Scan(&i.Country, &i.VoteCount, &i.Urgency); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -578,6 +637,86 @@ func (q *Queries) ListPublishedTrendingCandidates(ctx context.Context, arg ListP
 	return items, nil
 }
 
+const listPublishedTrendingWindow = `-- name: ListPublishedTrendingWindow :many
+SELECT p.id, p.slug, p.body, p.category, p.country, p.status, p.frequency,
+       p.disruption, p.would_pay, p.monthly_amount, p.tried, p.vote_count,
+       p.urgency, p.seeded, p.created_at, p.published_at,
+       (SELECT count(*) FROM votes v
+         WHERE v.pain_id = p.id
+           AND v.created_at >= $1::timestamptz) AS votes_window
+FROM published_pains p
+WHERE p.created_at >= $1::timestamptz
+ORDER BY p.vote_count DESC, p.urgency DESC, p.created_at DESC, p.id DESC
+LIMIT $2
+`
+
+type ListPublishedTrendingWindowParams struct {
+	WindowStart pgtype.Timestamptz `json:"window_start"`
+	PageLimit   int32              `json:"page_limit"`
+}
+
+type ListPublishedTrendingWindowRow struct {
+	ID            uuid.UUID          `json:"id"`
+	Slug          string             `json:"slug"`
+	Body          string             `json:"body"`
+	Category      string             `json:"category"`
+	Country       string             `json:"country"`
+	Status        string             `json:"status"`
+	Frequency     *string            `json:"frequency"`
+	Disruption    *string            `json:"disruption"`
+	WouldPay      bool               `json:"would_pay"`
+	MonthlyAmount *int32             `json:"monthly_amount"`
+	Tried         *string            `json:"tried"`
+	VoteCount     int32              `json:"vote_count"`
+	Urgency       int32              `json:"urgency"`
+	Seeded        bool               `json:"seeded"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	PublishedAt   pgtype.Timestamptz `json:"published_at"`
+	VotesWindow   int64              `json:"votes_window"`
+}
+
+// Candidate shortlist for a trending window. Postgres bounds the work to the
+// 50 most-voted/urgent published pains created inside the window; the pure
+// scoring package then applies the hot rank and its deterministic tie-breaks.
+// votes_window counts votes inside @window_start.
+func (q *Queries) ListPublishedTrendingWindow(ctx context.Context, arg ListPublishedTrendingWindowParams) ([]ListPublishedTrendingWindowRow, error) {
+	rows, err := q.db.Query(ctx, listPublishedTrendingWindow, arg.WindowStart, arg.PageLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublishedTrendingWindowRow
+	for rows.Next() {
+		var i ListPublishedTrendingWindowRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Slug,
+			&i.Body,
+			&i.Category,
+			&i.Country,
+			&i.Status,
+			&i.Frequency,
+			&i.Disruption,
+			&i.WouldPay,
+			&i.MonthlyAmount,
+			&i.Tried,
+			&i.VoteCount,
+			&i.Urgency,
+			&i.Seeded,
+			&i.CreatedAt,
+			&i.PublishedAt,
+			&i.VotesWindow,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRelatedPublished = `-- name: ListRelatedPublished :many
 SELECT id, slug, body, category, country, status, frequency, disruption, would_pay, monthly_amount, tried, vote_count, urgency, scoring_version, seeded, created_at, published_at FROM published_pains
 WHERE category = $1 AND id <> $2
@@ -619,6 +758,86 @@ func (q *Queries) ListRelatedPublished(ctx context.Context, arg ListRelatedPubli
 			&i.CreatedAt,
 			&i.PublishedAt,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTrendingCategoryCounts = `-- name: ListTrendingCategoryCounts :many
+SELECT category, count(*)::int AS pain_count
+FROM published_pains
+WHERE created_at >= $1::timestamptz
+GROUP BY category
+ORDER BY pain_count DESC, category
+LIMIT $2
+`
+
+type ListTrendingCategoryCountsParams struct {
+	WindowStart pgtype.Timestamptz `json:"window_start"`
+	PageLimit   int32              `json:"page_limit"`
+}
+
+type ListTrendingCategoryCountsRow struct {
+	Category  string `json:"category"`
+	PainCount int32  `json:"pain_count"`
+}
+
+// Category counts inside the same window, for the trending sidebar.
+func (q *Queries) ListTrendingCategoryCounts(ctx context.Context, arg ListTrendingCategoryCountsParams) ([]ListTrendingCategoryCountsRow, error) {
+	rows, err := q.db.Query(ctx, listTrendingCategoryCounts, arg.WindowStart, arg.PageLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTrendingCategoryCountsRow
+	for rows.Next() {
+		var i ListTrendingCategoryCountsRow
+		if err := rows.Scan(&i.Category, &i.PainCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTrendingCountryCounts = `-- name: ListTrendingCountryCounts :many
+SELECT country, count(*)::int AS pain_count
+FROM published_pains
+WHERE created_at >= $1::timestamptz
+GROUP BY country
+ORDER BY pain_count DESC, country
+LIMIT $2
+`
+
+type ListTrendingCountryCountsParams struct {
+	WindowStart pgtype.Timestamptz `json:"window_start"`
+	PageLimit   int32              `json:"page_limit"`
+}
+
+type ListTrendingCountryCountsRow struct {
+	Country   string `json:"country"`
+	PainCount int32  `json:"pain_count"`
+}
+
+// Country counts inside the same window, for the trending sidebar.
+func (q *Queries) ListTrendingCountryCounts(ctx context.Context, arg ListTrendingCountryCountsParams) ([]ListTrendingCountryCountsRow, error) {
+	rows, err := q.db.Query(ctx, listTrendingCountryCounts, arg.WindowStart, arg.PageLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTrendingCountryCountsRow
+	for rows.Next() {
+		var i ListTrendingCountryCountsRow
+		if err := rows.Scan(&i.Country, &i.PainCount); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

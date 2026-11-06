@@ -17,6 +17,7 @@ type fakeStore struct {
 	top        []pain.Pain
 	candidates []pain.Trending
 	lastLimit  int
+	stats      Stats
 }
 
 func (f *fakeStore) ListFeed(_ context.Context, fl pain.FeedFilter) ([]pain.Pain, error) {
@@ -34,6 +35,12 @@ func (f *fakeStore) ListTrendingCandidates(_ context.Context, _, _ string, limit
 	f.lastLimit = limit
 	return f.candidates, nil
 }
+
+func (f *fakeStore) CountPublished(context.Context) (int, error) { return f.stats.Pains, nil }
+
+func (f *fakeStore) CountCountries(context.Context) (int, error) { return f.stats.Countries, nil }
+
+func (f *fakeStore) CountVotes(context.Context) (int, error) { return f.stats.Votes, nil }
 
 type fixedClock struct{}
 
@@ -116,5 +123,18 @@ func TestLimitIsCapped(t *testing.T) {
 	}
 	if store.lastLimit != MaxLimit {
 		t.Fatalf("limit = %d, want cap %d", store.lastLimit, MaxLimit)
+	}
+}
+
+func TestListAttachesPublishedStats(t *testing.T) {
+	store := &fakeStore{latest: []pain.Pain{{ID: uuid.New()}}, stats: Stats{Pains: 7, Countries: 3, Votes: 42}}
+	svc := New(store, fixedClock{})
+
+	got, err := svc.List(context.Background(), Query{Tab: Latest})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if got.Stats != (Stats{Pains: 7, Countries: 3, Votes: 42}) {
+		t.Fatalf("stats = %+v, want 7/3/42", got.Stats)
 	}
 }

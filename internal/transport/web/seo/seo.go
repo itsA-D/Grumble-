@@ -81,6 +81,45 @@ func Hub(productName, title, description, path string, indexable bool) Meta {
 	return m
 }
 
+// Map returns metadata for the world pain map. Category variants canonicalise
+// to the unfiltered map and are noindex so the filtered views do not compete in
+// search; the page body never advertises a zero count (FR-SEO-3).
+func Map(productName string, filtered bool) Meta {
+	m := New(
+		productName,
+		"World pain map",
+		"See where frustrations cluster around the world. Brighter countries have more pain, ranked by urgency.",
+		"/map",
+	)
+	m.NoIndex = filtered
+	return m
+}
+
+// Trending returns metadata for the windowed trending board. The query-string
+// window variants canonicalise here and are noindex.
+func Trending(productName string, filtered bool) Meta {
+	m := New(
+		productName,
+		"Trending frustrations",
+		"The frustrations gaining ground right now, ranked by heat across votes and urgency.",
+		"/trending",
+	)
+	m.NoIndex = filtered
+	return m
+}
+
+// Saved returns metadata for the private saved list (always noindex).
+func Saved(productName string) Meta {
+	m := New(
+		productName,
+		"Saved frustrations",
+		"Frustrations saved on this device.",
+		"/saved",
+	)
+	m.NoIndex = true
+	return m
+}
+
 // Submit returns metadata for the submission form (always noindex).
 func Submit(productName string) Meta {
 	m := New(

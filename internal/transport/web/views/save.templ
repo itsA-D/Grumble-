@@ -1,0 +1,46 @@
+package views
+
+// SaveButtonView is the HTMX-swappable save/remove control. The form carries the
+// per-identity CSRF token and the desired end state is implied by the method.
+templ SaveButtonView(v SaveButton) {
+	<div id={ "save-" + v.PainID } class="inline-flex flex-col items-end gap-1">
+		<form
+			method="post"
+			action={ "/saved/" + v.PainID }
+			if v.Saved {
+				hx-delete={ "/saved/" + v.PainID }
+			} else {
+				hx-post={ "/saved/" + v.PainID }
+			}
+			if v.FromSaved {
+				hx-target="closest article"
+				hx-swap="outerHTML swap:150ms"
+			} else {
+				hx-target={ "#save-" + v.PainID }
+				hx-swap="outerHTML"
+			}
+		>
+			<input type="hidden" name="csrf_token" value={ v.CSRFToken }/>
+			<input type="hidden" name="return_to" value={ v.ReturnTo }/>
+			if v.FromSaved {
+				<input type="hidden" name="from" value="saved"/>
+			}
+			<button
+				type="submit"
+				aria-pressed={ boolStr(v.Saved) }
+				class="min-h-[32px] px-1 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-dim transition-colors hover:text-fg focus-visible:text-fg focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-sig"
+			>
+				if v.FromSaved {
+					REMOVE
+				} else if v.Saved {
+					SAVED
+				} else {
+					SAVE
+				}
+			</button>
+		</form>
+		if v.Error != "" {
+			<p class="max-w-[14rem] text-right font-mono text-[10px] leading-relaxed text-sig" role="status">{ v.Error }</p>
+		}
+	</div>
+}

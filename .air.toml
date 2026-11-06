@@ -1,15 +1,31 @@
+
 root = "."
 tmp_dir = ".run"
 
+[env]
+  DATABASE_URL = "postgres://grumble:grumble@localhost:5433/grumble?sslmode=disable"
+  ANON_ID_SECRET = "dev-anon-secret-change-me-0000"
+  IP_HASH_SALT = "dev-ip-hash-salt-change-me0000"
+  APP_ENV = "dev"
+  SITE_URL = "http://localhost:3000"
+  PRODUCT_NAME = "Grumble"
+  HTTP_ADDR = ":3000"
+  LOG_LEVEL = "info"
+  RATELIMIT_MODE = "memory"
+
 [build]
   cmd = "go build -o .run/app ./cmd/app"
-  bin = ".run/app"
+  entrypoint = ["./.run/app"]
   delay = 500
   stop_on_error = true
   include_ext = ["go", "templ"]
   exclude_dir = [".cache", ".run", ".git", "bin", "web", "db", "docs", "deploy", "test-results"]
   exclude_regex = ["_templ.go"]
   kill_delay = "1s"
+
+[build.windows]
+  cmd = "go build -o .run/app.exe ./cmd/app"
+  entrypoint = [".run\\app.exe"]
 
 [log]
   time = true

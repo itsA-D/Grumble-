@@ -28,11 +28,17 @@ type Deps struct {
 	// TrustedProxies are the CIDRs whose header values are trusted.
 	TrustedProxies []string
 
-	// Feed, Pains, Voting and Hubs are the service surface (see services.go).
-	Feed   FeedService
-	Pains  PainsService
-	Voting VotingService
-	Hubs   HubsService
+	// Feed, Pains, Voting, Hubs, Map, Trending and Bookmarks are the service
+	// surface (see services.go).
+	Feed      FeedService
+	Pains     PainsService
+	Voting    VotingService
+	Hubs      HubsService
+	Map       MapService
+	Trending  TrendingService
+	Bookmarks BookmarksService
+	// SaveLimiter throttles save/unsave mutations.
+	SaveLimiter SaveLimiter
 	// Identity signs and verifies the anonymous-id cookie.
 	Identity IDSigner
 	// NewAnonID mints a fresh raw anonymous id for a first-time visitor.

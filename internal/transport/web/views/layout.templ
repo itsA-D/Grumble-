@@ -6,6 +6,8 @@ templ Layout(page Page) {
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="color-scheme" content="dark"/>
+			<meta name="theme-color" content="#0c0d0b"/>
 			<title>{ page.Meta.Title }</title>
 			if page.Meta.Description != "" {
 				<meta name="description" content={ page.Meta.Description }/>
@@ -14,14 +16,31 @@ templ Layout(page Page) {
 				<meta name="robots" content="noindex"/>
 			}
 			<link rel="canonical" href={ page.Meta.Canonical(page.SiteURL) }/>
+			<link
+				rel="preload"
+				href="/static/fonts/archivo-latin-var.woff2"
+				as="font"
+				type="font/woff2"
+				crossorigin="anonymous"
+			/>
 			<link rel="stylesheet" href="/static/app.css"/>
 			<meta name="htmx-config" content='{"includeIndicatorStyles":false}'/>
-			<script src="/static/theme-init.js"></script>
 			<script src="/static/htmx.min.js" defer></script>
-			<script src="/static/app.js" defer></script>
 		</head>
-		<body class="flex min-h-full flex-col bg-canvas font-sans text-ink antialiased">
-			{ children... }
+		<body class="min-h-full bg-ink font-sans text-fg antialiased">
+			<div class="site-bg" aria-hidden="true">
+				<div class="site-bg__fallback"></div>
+				<div class="site-bg__image"></div>
+				<div class="site-bg__grain"></div>
+				<div class="site-bg__shade"></div>
+			</div>
+			<div class="relative z-10 flex min-h-dvh flex-col">
+				@SiteHeader(page)
+				<main id="content" class="flex flex-1 flex-col">
+					{ children... }
+				</main>
+				@SiteFooter()
+			</div>
 		</body>
 	</html>
 }

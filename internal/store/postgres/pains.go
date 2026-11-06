@@ -177,6 +177,58 @@ func (r *Pains) ListTrendingCandidates(ctx context.Context, category, search str
 	return out, nil
 }
 
+// ListTrendingWindow returns the bounded candidate shortlist for one trending
+// window. The service applies the pure hot rank afterwards.
+func (r *Pains) ListTrendingWindow(ctx context.Context, windowStart time.Time, limit int) ([]pain.Trending, error) {
+	rows, err := queries.New(handle(ctx, r.pool)).ListPublishedTrendingWindow(ctx, queries.ListPublishedTrendingWindowParams{
+		WindowStart: timestamp(windowStart),
+		PageLimit:   int32(limit),
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]pain.Trending, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, pain.Trending{
+			Pain:    painFromWindowRow(row),
+			Votes7d: int(row.VotesWindow),
+		})
+	}
+	return out, nil
+}
+
+// ListTrendingCategoryCounts returns category counts inside the window.
+func (r *Pains) ListTrendingCategoryCounts(ctx context.Context, windowStart time.Time, limit int) ([]pain.Count, error) {
+	rows, err := queries.New(handle(ctx, r.pool)).ListTrendingCategoryCounts(ctx, queries.ListTrendingCategoryCountsParams{
+		WindowStart: timestamp(windowStart),
+		PageLimit:   int32(limit),
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]pain.Count, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, pain.Count{Key: row.Category, Count: int(row.PainCount)})
+	}
+	return out, nil
+}
+
+// ListTrendingCountryCounts returns country counts inside the window.
+func (r *Pains) ListTrendingCountryCounts(ctx context.Context, windowStart time.Time, limit int) ([]pain.Count, error) {
+	rows, err := queries.New(handle(ctx, r.pool)).ListTrendingCountryCounts(ctx, queries.ListTrendingCountryCountsParams{
+		WindowStart: timestamp(windowStart),
+		PageLimit:   int32(limit),
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]pain.Count, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, pain.Count{Key: row.Country, Count: int(row.PainCount)})
+	}
+	return out, nil
+}
+
 // ListByCategory returns a category's published pains (FR-HUB-1).
 func (r *Pains) ListByCategory(ctx context.Context, category string, limit, offset int) ([]pain.Pain, error) {
 	rows, err := queries.New(handle(ctx, r.pool)).ListPublishedByCategory(ctx, queries.ListPublishedByCategoryParams{
@@ -224,6 +276,18 @@ func (r *Pains) CountByCategory(ctx context.Context, category string) (int, erro
 // CountByCountry counts a country's published pains.
 func (r *Pains) CountByCountry(ctx context.Context, country string) (int, error) {
 	n, err := queries.New(handle(ctx, r.pool)).CountPublishedByCountry(ctx, country)
+	return int(n), err
+}
+
+// CountCountries counts the distinct countries with published pains.
+func (r *Pains) CountCountries(ctx context.Context) (int, error) {
+	n, err := queries.New(handle(ctx, r.pool)).CountPublishedCountries(ctx)
+	return int(n), err
+}
+
+// CountVotes sums the cached vote counters across published pains.
+func (r *Pains) CountVotes(ctx context.Context) (int, error) {
+	n, err := queries.New(handle(ctx, r.pool)).CountPublishedVotes(ctx)
 	return int(n), err
 }
 

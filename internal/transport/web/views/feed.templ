@@ -1,73 +1,108 @@
 package views
 
+import "grumble/internal/transport/web/views/ui"
+
 // Feed is the explore feed with its three tabs, category chips and a search box
 // (FR-FEED-1).
 templ Feed(page FeedPage) {
 	@Layout(page.Page) {
-		@SiteHeader(page.Page)
-		<main id="main" class="mx-auto w-full max-w-5xl flex-1 px-6 py-10">
-			<h1 class="text-3xl font-bold tracking-tight">Frustrations ranked by urgency</h1>
-			<p class="mt-2 max-w-2xl text-muted">
-				Everyday problems people are tired of, ordered by how much they waste our time. Upvote the ones you recognise.
-			</p>
-			<nav aria-label="Feed view" class="mt-6 flex flex-wrap gap-2">
-				@feedTab("trending", "Trending", page)
-				@feedTab("latest", "Latest", page)
-				@feedTab("most_voted", "Most voted", page)
-			</nav>
-			<form method="get" action="/" role="search" class="mt-6 flex flex-wrap items-center gap-2">
-				<input type="hidden" name="tab" value={ page.Tab }/>
-				if page.ActiveCategory != "" {
-					<input type="hidden" name="category" value={ page.ActiveCategory }/>
-				}
-				<label for="feed-search" class="sr-only">Search frustrations</label>
-				<input
-					id="feed-search"
-					type="search"
-					name="q"
-					value={ page.Search }
-					maxlength="100"
-					placeholder="Search frustrations..."
-					class="w-full max-w-sm rounded-md border border-edge bg-surface px-3 py-1.5 text-sm text-ink placeholder:text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-				/>
-				<button type="submit" class="rounded-md border border-edge px-3 py-1.5 text-sm text-muted transition hover:text-ink">Search</button>
-			</form>
-			<nav aria-label="Filter by category" class="mt-4 flex flex-wrap gap-2">
-				<a href={ feedLink(page.Tab, "", page.Search, "") } class={ chipClass(page.ActiveCategory == "") }>All</a>
-				for _, c := range page.Categories {
-					<a href={ feedLink(page.Tab, c.Slug, page.Search, "") } class={ chipClass(c.Slug == page.ActiveCategory) }>{ c.Name }</a>
-				}
-			</nav>
-			<div class="mt-8">
-				if page.EmptyFeed {
-					<p class="rounded-lg border border-dashed border-edge bg-surface p-8 text-center text-muted">
-						Nothing has been posted in this view yet.
-						<a href="/submit" class="text-brand underline underline-offset-4">Post the first frustration.</a>
-					</p>
-				} else {
-					@PainList(page.Cards)
-				}
-			</div>
-			@feedPagination(page)
-		</main>
-		@SiteFooter()
+		<div class="mx-auto w-full max-w-6xl flex-1 px-5 pb-20 pt-14 sm:px-8 sm:pt-20">
+			<section class="max-w-4xl">
+				<p class="meta flex items-center gap-2">
+					<span class="inline-block h-1.5 w-1.5 bg-sig"></span>
+					Public board / ranked by urgency
+				</p>
+				<h1 class="display mt-5 text-[clamp(2.7rem,8vw,6rem)]">
+					Frustrations ranked by <span class="text-sig">urgency</span>
+				</h1>
+				<p class="mt-6 max-w-2xl text-base leading-relaxed text-fg-soft sm:text-lg">
+					Everyday problems people are tired of, ordered by how much they waste our time. Upvote the ones you recognise.
+				</p>
+			</section>
+
+			@ui.StatStrip(page.PainTotal, page.CountryTotal, page.VoteTotal, false)
+
+			<section class="mt-12">
+				<div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+					<nav aria-label="Feed view" class="flex flex-wrap gap-2">
+						@feedTab("trending", "Trending", page)
+						@feedTab("latest", "Latest", page)
+						@feedTab("most_voted", "Most voted", page)
+					</nav>
+					<form
+						method="get"
+						action="/"
+						role="search"
+						class="glass-bar glass-bar-interactive flex items-center gap-1 p-1 focus-within:ring-1 focus-within:ring-sig"
+					>
+						<input type="hidden" name="tab" value={ page.Tab }/>
+						if page.ActiveCategory != "" {
+							<input type="hidden" name="category" value={ page.ActiveCategory }/>
+						}
+						<label for="feed-search" class="sr-only">Search frustrations</label>
+						<input
+							id="feed-search"
+							type="search"
+							name="q"
+							value={ page.Search }
+							maxlength="100"
+							placeholder="Search frustrations..."
+							class="h-10 w-full min-w-0 bg-transparent px-3 font-mono text-xs text-fg placeholder:text-dim focus:outline-none sm:w-64"
+						/>
+						<button type="submit" class="btn btn-ghost min-h-10 px-3">Search</button>
+					</form>
+				</div>
+
+				<nav aria-label="Filter by category" class="mt-4 flex flex-wrap gap-2">
+					@ui.Chip(feedLink(page.Tab, "", page.Search, ""), page.ActiveCategory == "") {
+						All
+					}
+					for _, c := range page.Categories {
+						@ui.Chip(feedLink(page.Tab, c.Slug, page.Search, ""), c.Slug == page.ActiveCategory) {
+							{ c.Name }
+						}
+					}
+				</nav>
+
+				<div class="mt-8">
+					if page.EmptyFeed {
+						@ui.Panel() {
+							<p class="p-8 text-center text-sm leading-relaxed text-fg-soft">
+								Nothing has been posted in this view yet.
+								<a href="/submit" class="text-link">Post the first frustration.</a>
+							</p>
+						}
+					} else {
+						@PainList(page.Cards)
+					}
+				</div>
+
+				@feedPagination(page)
+			</section>
+		</div>
 	}
 }
 
 templ feedTab(tab, label string, page FeedPage) {
-	<a href={ feedLink(tab, page.ActiveCategory, page.Search, "") } class={ tabClass(tab == page.Tab) }>{ label }</a>
+	@ui.Chip(feedLink(tab, page.ActiveCategory, page.Search, ""), tab == page.Tab) {
+		{ label }
+	}
 }
 
 templ feedPagination(page FeedPage) {
 	if page.HasCursor || page.HasNext {
-		<nav aria-label="Pagination" class="mt-8 flex items-center justify-between text-sm">
+		<nav aria-label="Pagination" class="mt-8 flex items-center justify-between">
 			if page.HasCursor {
-				<a href={ feedLink(page.Tab, page.ActiveCategory, page.Search, "") } class="text-brand underline underline-offset-4">Newer</a>
+				@ui.ButtonLink(feedLink(page.Tab, page.ActiveCategory, page.Search, ""), ui.Ghost) {
+					Newer
+				}
 			} else {
 				<span></span>
 			}
 			if page.HasNext {
-				<a href={ feedLink(page.Tab, page.ActiveCategory, page.Search, page.NextCursor) } class="text-brand underline underline-offset-4">Older</a>
+				@ui.ButtonLink(feedLink(page.Tab, page.ActiveCategory, page.Search, page.NextCursor), ui.Ghost) {
+					Older
+				}
 			}
 		</nav>
 	}

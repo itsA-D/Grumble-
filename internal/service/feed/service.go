@@ -52,6 +52,9 @@ const (
 type Store interface {
 	ListFeed(ctx context.Context, f pain.FeedFilter) ([]pain.Pain, error)
 	ListTrendingCandidates(ctx context.Context, category, search string, limit int) ([]pain.Trending, error)
+	CountPublished(ctx context.Context) (int, error)
+	CountCountries(ctx context.Context) (int, error)
+	CountVotes(ctx context.Context) (int, error)
 }
 
 // Clock supplies the current time for the hot rank's age term.
@@ -80,11 +83,19 @@ type Query struct {
 	Limit    int
 }
 
+// Stats are published-only totals for the stat strip.
+type Stats struct {
+	Pains     int
+	Countries int
+	Votes     int
+}
+
 // Page is one feed page and the cursor for the next one (FR-FEED-1).
 type Page struct {
 	Pains      []pain.Pain
 	NextCursor string
 	HasNext    bool
+	Stats      Stats
 }
 
 // List returns one page of the requested tab.
@@ -95,7 +106,11 @@ func (s *Service) List(ctx context.Context, q Query) (Page, error) {
 	after := decodeCursor(q.Cursor, q.Tab)
 
 	if q.Tab == Trending {
-		return s.listTrending(ctx, limit, category, search, after)
+		page, err := s.listTrending(ctx, limit, category, search, after)
+		if err != nil {
+			return Page{}, err
+		}
+		return s.withStats(ctx, page)
 	}
 
 	rows, err := s.store.ListFeed(ctx, pain.FeedFilter{
@@ -109,7 +124,25 @@ func (s *Service) List(ctx context.Context, q Query) (Page, error) {
 	if err != nil {
 		return Page{}, err
 	}
-	return pageOf(rows, limit, q.Tab), nil
+	return s.withStats(ctx, pageOf(rows, limit, q.Tab))
+}
+
+// withStats attaches the board totals the header stat strip renders.
+func (s *Service) withStats(ctx context.Context, page Page) (Page, error) {
+	pains, err := s.store.CountPublished(ctx)
+	if err != nil {
+		return Page{}, err
+	}
+	countries, err := s.store.CountCountries(ctx)
+	if err != nil {
+		return Page{}, err
+	}
+	votes, err := s.store.CountVotes(ctx)
+	if err != nil {
+		return Page{}, err
+	}
+	page.Stats = Stats{Pains: pains, Countries: countries, Votes: votes}
+	return page, nil
 }
 
 // listTrending ranks the candidate window by the pure hot score, then applies

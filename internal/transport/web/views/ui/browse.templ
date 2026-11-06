@@ -1,0 +1,45 @@
+package ui
+
+// BrowseGrid renders compact links to hubs. Empty groups and zero-count links
+// are hidden so the grid never advertises a count of zero.
+templ BrowseGrid(groups []BrowseGroup) {
+	<div class="grid gap-8 sm:grid-cols-2">
+		for _, group := range groups {
+			if visibleLinks(group.Links) {
+				<section>
+					<p class="meta mb-3">{ group.Title }</p>
+					<ul class="grid gap-x-6 gap-y-2" role="list">
+						for _, link := range group.Links {
+							if link.Count > 0 {
+								<li class="flex items-baseline justify-between gap-4 border-b border-white/10 pb-2">
+									<a href={ link.Href } class="text-link truncate">{ link.Label }</a>
+									<span class="font-mono text-[11px] text-fg-soft">{ FormatCount(link.Count) }</span>
+								</li>
+							}
+						}
+					</ul>
+				</section>
+			}
+		}
+	</div>
+}
+
+// EmptyStateTitled adds a title above the shared empty-state message.
+templ EmptyStateTitled(title, message, actionHref, actionLabel string) {
+	<div class="text-center py-12 sm:py-16">
+		<h2 class="font-display text-xl font-semibold tracking-[-0.01em] text-fg sm:text-2xl">{ title }</h2>
+		<p class="text-fg-soft text-base sm:text-lg mt-3 mb-6 max-w-sm mx-auto">{ message }</p>
+		if actionHref != "" {
+			@ButtonLink(actionHref, Primary) { { actionLabel } }
+		}
+	</div>
+}
+
+func visibleLinks(links []BrowseLink) bool {
+	for _, link := range links {
+		if link.Count > 0 {
+			return true
+		}
+	}
+	return false
+}

@@ -24,6 +24,10 @@ coverage.html
 /node_modules/
 /test-results/
 /playwright-report/
+/.playwright-mcp/
+
+# Map source data (public domain; regenerate per docs/map-data.md)
+/scripts/mapgen/*.geojson
 
 # Local tool state that may contain credentials
 /.jetro/
@@ -33,3 +37,10 @@ coverage.html
 Thumbs.db
 .idea/
 .vscode/
+
+# Pre-existing unrelated dev artifacts that do not belong in this repo
+/image.png
+/image copy.png
+/.mcp.json
+/task-state/
+

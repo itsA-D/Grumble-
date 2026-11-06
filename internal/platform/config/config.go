@@ -30,6 +30,7 @@ type Config struct {
 	TrustedProxy TrustedProxy
 	Turnstile    Turnstile
 	RateLimit    RateLimit
+	Bookmarks    Bookmarks
 	Model        Model
 	Email        Email
 	Billing      Billing
@@ -110,6 +111,18 @@ type RateLimit struct {
 	SubmitWindow time.Duration
 	// SubmitMax is how many submissions one source may make per window.
 	SubmitMax int
+	// SaveWindow is the sliding window for save/unsave mutations.
+	SaveWindow time.Duration
+	// SaveMax is how many save mutations one identity may make per window.
+	SaveMax int
+}
+
+// Bookmarks configures the saved-list cap. PRD FR-BKM-1 allows five saved
+// frustrations without a plan and unlimited for Pro; anonymous visitors have no
+// plan, so this is the anonymous cap.
+type Bookmarks struct {
+	// SavedLimit is the maximum saved frustrations per identity.
+	SavedLimit int
 }
 
 // Model configures the LLM provider and model names.
@@ -203,6 +216,11 @@ func load(lookup lookupFunc) (Config, error) {
 			RedisURL:     opt(lookup, "RATELIMIT_REDIS_URL", ""),
 			SubmitWindow: optDuration(lookup, "RATELIMIT_SUBMIT_WINDOW", time.Hour),
 			SubmitMax:    optInt(lookup, "RATELIMIT_SUBMIT_MAX", 5, &problems),
+			SaveWindow:   optDuration(lookup, "RATELIMIT_SAVE_WINDOW", time.Hour),
+			SaveMax:      optInt(lookup, "RATELIMIT_SAVE_MAX", 120, &problems),
+		},
+		Bookmarks: Bookmarks{
+			SavedLimit: optInt(lookup, "BOOKMARKS_MAX", 5, &problems),
 		},
 		Model: Model{
 			APIKey: opt(lookup, "MODEL_API_KEY", ""),
@@ -284,6 +302,15 @@ func (c Config) validate() []string {
 	}
 	if c.RateLimit.SubmitWindow <= 0 {
 		problems = append(problems, "RATELIMIT_SUBMIT_WINDOW must be positive")
+	}
+	if c.RateLimit.SaveMax < 1 {
+		problems = append(problems, "RATELIMIT_SAVE_MAX must be at least 1")
+	}
+	if c.RateLimit.SaveWindow <= 0 {
+		problems = append(problems, "RATELIMIT_SAVE_WINDOW must be positive")
+	}
+	if c.Bookmarks.SavedLimit < 1 {
+		problems = append(problems, "BOOKMARKS_MAX must be at least 1")
 	}
 
 	switch c.Realtime.Mode {

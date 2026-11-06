@@ -1,70 +1,117 @@
 package views
 
-// SiteHeader is the shared top bar with the primary navigation and the theme
-// toggle. It is a semantic <header> with a nav landmark.
+import "grumble/internal/transport/web/views/ui"
+
+// SiteHeader is the shared top bar. It is a semantic nav landmark that owns the
+// sticky positioning, the mobile menu and the primary action. The links come
+// from NavItems so every full page shows the same navigation.
 templ SiteHeader(page Page) {
-	<a
-		href="#main"
-		class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2 focus:text-ink"
-	>
-		Skip to content
-	</a>
-	<header class="border-b border-edge bg-surface">
-		<div class="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-6 py-4">
-			<a href="/" class="text-lg font-semibold tracking-tight text-brand">{ page.ProductName }</a>
-			<nav aria-label="Primary" class="flex items-center gap-4">
-				<a href="/" class="text-sm text-muted transition hover:text-ink">Explore</a>
-				<a
-					href="/submit"
-					class="rounded-md bg-brand px-3 py-1.5 text-sm font-semibold text-white transition hover:opacity-90"
-				>
-					Post a frustration
-				</a>
-				<button
-					type="button"
-					data-theme-toggle
-					aria-pressed="false"
-					class="rounded-md border border-edge px-3 py-1.5 text-sm text-muted transition hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-				>
-					Dark mode
-				</button>
-			</nav>
+	<a href="#content" class="skip-link">Skip to content</a>
+	<nav aria-label="Main" class="site-header glass-bar">
+		<div class="mx-auto flex h-[var(--nav-h)] w-full max-w-6xl items-center justify-between gap-3 px-5 sm:gap-4 sm:px-8">
+			<a href="/" class="group flex min-w-0 items-baseline gap-3">
+				<span class="font-display text-[24px] font-extrabold leading-none tracking-[-0.03em] text-fg transition-colors group-hover:text-sig sm:text-[30px]">
+					{ page.ProductName }
+				</span>
+				<span class="meta hidden text-[9px] sm:inline">/ public board</span>
+			</a>
+			<div class="flex items-center gap-2 sm:gap-5">
+				<div class="hidden items-center gap-5 sm:flex">
+					for _, item := range NavItems(page.Path) {
+						<a
+							href={ item.Href }
+							class={ "nav-link", templ.KV("nav-link-active", item.Active) }
+							if item.Active {
+								aria-current="page"
+							}
+						>{ item.Label }</a>
+					}
+				</div>
+				<details class="nav-menu sm:hidden">
+					<summary class="nav-link">Menu</summary>
+					<div class="nav-menu__panel glass-bar">
+						for _, item := range NavItems(page.Path) {
+							<a
+								href={ item.Href }
+								class={ "nav-link", templ.KV("nav-link-active", item.Active) }
+								if item.Active {
+									aria-current="page"
+								}
+							>{ item.Label }</a>
+						}
+					</div>
+				</details>
+				@ui.ButtonLink("/submit", ui.Primary) {
+					<span class="sm:hidden">Post</span>
+					<span class="hidden sm:inline">Post a frustration</span>
+				}
+			</div>
 		</div>
-	</header>
+	</nav>
 }
 
-// SiteFooter is the shared footer. Its inner container mirrors SiteHeader's
-// (same max width and padding) so the footer content lines up with the header
-// and the page column.
+// SiteFooter is the shared footer. Its inner container mirrors SiteHeader's, so
+// the footer lines up with the page column.
 templ SiteFooter() {
-	<footer class="border-t border-edge text-sm text-muted">
-		<div class="mx-auto flex w-full max-w-5xl items-center px-6 py-6">
-			Built for people who are tired of the same old problems.
+	<footer class="mt-auto border-t border-white/10">
+		<div class="mx-auto flex w-full max-w-6xl flex-col gap-2 px-5 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+			<p class="meta">Built for people who are tired of the same old problems.</p>
+			<p class="meta text-fg-soft">No accounts. No noise.</p>
 		</div>
 	</footer>
 }
 
-// PainCardView renders one pain in a list or feed.
+// PainCardView renders one pain in a list or feed. The title link comes first in
+// the DOM so keyboard and test navigation land on the pain, not the vote cue.
 templ PainCardView(card PainCard) {
-	<article class="rounded-lg border border-edge bg-surface p-5">
-		<a href={ "/p/" + card.Slug } class="block">
-			<p class="text-base leading-relaxed text-ink">{ card.Body }</p>
-		</a>
-		<div class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted">
-			<a href={ "/c/" + card.CategorySlug } class="hover:text-ink">{ card.CategoryName }</a>
-			<a href={ "/country/" + card.CountryCode } class="hover:text-ink">{ card.CountryName }</a>
-			<span>{ countLabel(card.VoteCount, "vote", "votes") }</span>
-			<span>urgency { card.Urgency }</span>
-			if card.Seeded {
-				<span class="rounded border border-edge px-1.5 py-0.5 text-xs uppercase tracking-wide">seed</span>
+	<article id={ "pain-" + card.ID } class="pain-row group">
+		<div class="flex items-stretch gap-3 p-4 sm:gap-5 sm:p-5">
+			if card.Rank > 0 {
+				<span
+					class="w-8 shrink-0 pt-0.5 font-mono text-[11px] font-medium tracking-[0.08em] text-dim"
+					aria-label={ "Rank " + countLabel(card.Rank, "", "") }
+				>{ card.Rank }</span>
 			}
+			<div class="min-w-0 flex-1">
+				<h2 class="font-display text-[15px] font-semibold leading-[1.55] tracking-[-0.01em] text-fg sm:text-base">
+					<a href={ "/p/" + card.Slug } class="transition-colors group-hover:text-sig">{ card.Body }</a>
+				</h2>
+				<div class="meta mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+					<a href={ "/c/" + card.CategorySlug }>{ card.CategoryName }</a>
+					<span aria-hidden="true">/</span>
+					<a href={ "/country/" + card.CountryCode }>{ card.CountryName }</a>
+					<span class="text-sig">Urgency { card.Urgency }</span>
+					if card.Seeded {
+						@ui.Tag("Seed")
+					}
+				</div>
+			</div>
+			<div class="flex shrink-0 flex-col items-end justify-between gap-2">
+			<a
+				href={ "/p/" + card.Slug }
+				class="vote-ghost"
+				aria-label={ countLabel(card.VoteCount, "vote", "votes") + ", open to vote" }
+			>
+				<span aria-hidden="true" class="text-[13px] leading-none">▲</span>
+				<span>{ card.VoteCount }</span>
+			</a>
+			if card.ID != "" {
+				@SaveButtonView(SaveButton{
+					PainID:    card.ID,
+					Saved:     card.Saved,
+					CSRFToken: card.CSRFToken,
+					ReturnTo:  "/p/" + card.Slug,
+					FromSaved: card.FromSaved,
+				})
+			}
+			</div>
 		</div>
 	</article>
 }
 
 // PainList renders a list of pain cards, or nothing when empty.
 templ PainList(cards []PainCard) {
-	<div class="flex flex-col gap-4">
+	<div class="flex flex-col">
 		for _, card := range cards {
 			@PainCardView(card)
 		}
@@ -90,9 +137,9 @@ templ VoteButtonView(v VoteButton) {
 			<button
 				type="submit"
 				aria-pressed={ boolStr(v.Voted) }
-				class="inline-flex items-center gap-2 rounded-md border border-edge px-4 py-2 text-sm font-semibold text-ink transition hover:border-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+				class={ "btn", "btn-ghost", "vote-button", templ.KV("vote-button-on", v.Voted) }
 			>
-				<span aria-hidden="true">{ voteGlyph(v.Voted) }</span>
+				<span aria-hidden="true" class="text-[13px] leading-none">{ voteGlyph(v.Voted) }</span>
 				<span>{ voteLabel(v) }</span>
 			</button>
 		</form>

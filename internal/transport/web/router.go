@@ -28,6 +28,13 @@ func NewRouter(deps Deps) http.Handler {
 	r.Handle("/static/*", staticHandler())
 
 	r.Get("/", s.handleFeed)
+	r.Get("/trending", s.handleTrending)
+	r.Get("/saved", s.handleSaved)
+	r.Post("/saved/{id}", s.handleSave)
+	r.Delete("/saved/{id}", s.handleUnsave)
+	r.Get("/map", s.handleMap)
+	r.Get("/map/country/{code}", s.handleMapCountry)
+	r.Get("/map/side/clear", s.handleMapSideClear)
 	r.Get("/submit", s.handleSubmitForm)
 	r.Post("/submit", s.handleSubmit)
 	r.Get("/p/{slug}", s.handleDetail)

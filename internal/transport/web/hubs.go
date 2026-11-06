@@ -30,10 +30,12 @@ func (s *Server) handleDetail(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	vm := s.page(r, seo.Pain(s.deps.ProductName, detail.Pain.Body, "/p/"+detail.Pain.Slug))
+	saved := s.savedSet(r.Context(), r)
 	s.render(w, r, http.StatusOK, views.Detail(views.DetailPage{
-		Page:      s.page(r.Context(), seo.Pain(s.deps.ProductName, detail.Pain.Body, "/p/"+detail.Pain.Slug)),
-		Pain:      s.cardFromPain(detail.Pain),
-		Related:   s.cardsFromPains(detail.Related),
+		Page:      vm,
+		Pain:      s.cardFromPain(detail.Pain, saved, vm.CSRFToken),
+		Related:   s.cardsFromPains(detail.Related, saved, vm.CSRFToken),
 		Voted:     voted,
 		PainID:    detail.Pain.ID.String(),
 		VoteCount: detail.Pain.VoteCount,
@@ -64,12 +66,13 @@ func (s *Server) renderHub(w http.ResponseWriter, r *http.Request, kind hubs.Kin
 		faq = append(faq, views.FAQ{Question: q.Question, Answer: q.Answer})
 	}
 
+	vm := s.page(r, seo.Hub(s.deps.ProductName, hub.Title, hub.Description, prefix+slug, hub.Indexable))
 	s.render(w, r, http.StatusOK, views.Hub(views.HubPage{
-		Page:      s.page(r.Context(), seo.Hub(s.deps.ProductName, hub.Title, hub.Description, prefix+slug, hub.Indexable)),
+		Page:      vm,
 		Heading:   hub.Title,
 		Intro:     hub.Intro,
 		FAQ:       faq,
-		Cards:     s.cardsFromPains(hub.Pains),
+		Cards:     s.cardsFromPains(hub.Pains, s.savedSet(r.Context(), r), vm.CSRFToken),
 		Count:     hub.Count,
 		Indexable: hub.Indexable,
 	}))

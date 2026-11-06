@@ -13,18 +13,25 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+	"github.com/riverqueue/river/rivermigrate"
 
+	"grumble/internal/jobs"
 	"grumble/internal/platform/clock"
 	"grumble/internal/platform/config"
 	"grumble/internal/platform/db"
 	"grumble/internal/platform/idgen"
 	"grumble/internal/platform/ratelimit"
 	"grumble/internal/platform/turnstile"
+	"grumble/internal/service/bookmarks"
 	"grumble/internal/service/feed"
 	"grumble/internal/service/hubs"
 	"grumble/internal/service/identity"
+	"grumble/internal/service/mapsvc"
 	"grumble/internal/service/pains"
 	"grumble/internal/service/seed"
+	"grumble/internal/service/trending"
 	"grumble/internal/service/voting"
 	"grumble/internal/store/postgres"
 	"grumble/internal/transport/web"
@@ -46,6 +53,15 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		return nil, err
 	}
 
+	tx := postgres.NewTxManager(pool)
+	bookmarksSvc := bookmarks.New(postgres.NewBookmarks(pool), tx, bookmarks.Config{
+		SavedLimit: cfg.Bookmarks.SavedLimit,
+	})
+	saveLimiter := ratelimit.NewMemory(ratelimit.Config{
+		Window: cfg.RateLimit.SaveWindow,
+		Max:    cfg.RateLimit.SaveMax,
+	}, time.Now)
+
 	handler := web.NewRouter(web.Deps{
 		Logger:             logger,
 		Pool:               pool,
@@ -56,8 +72,12 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		TrustedProxies:     cfg.TrustedProxy.Proxies,
 		Feed:               feed.New(postgres.NewPains(pool), clock.System{}),
 		Pains:              newPainsService(cfg, pool),
-		Voting:             voting.New(postgres.NewPains(pool), postgres.NewVotes(pool), postgres.NewTxManager(pool)),
+		Voting:             voting.New(postgres.NewPains(pool), postgres.NewVotes(pool), tx),
 		Hubs:               hubs.New(postgres.NewPains(pool)),
+		Map:                mapsvc.New(postgres.NewCountryStats(pool)),
+		Trending:           trending.New(postgres.NewPains(pool), clock.System{}),
+		Bookmarks:          bookmarksSvc,
+		SaveLimiter:        saveLimiter,
 		Identity:           identity.New(cfg.Identity.AnonIDSecret, cfg.Identity.IPHashSalt, cfg.Identity.IPHashSaltPrevious),
 		NewAnonID:          newAnonID,
 		TurnstileSiteKey:   cfg.Turnstile.SiteKey,
@@ -166,15 +186,58 @@ func Seed(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	if err := jobs.RebuildCountryStats(ctx, pool); err != nil {
+		return fmt.Errorf("rebuild map stats: %w", err)
+	}
 	logger.Info("seed complete", "created", rep.Created, "skipped", rep.Skipped, "seeded", true)
 	return nil
 }
 
-// RunWorker runs background jobs. The job queue (River) is introduced with the
-// first asynchronous work; until then the worker idles so the process stays up.
+// RunWorker runs background jobs. The only job today is the periodic rebuild of
+// the map's country_stats read model (FR-MAP-1); River owns scheduling so a
+// restart never loses the cadence.
 func RunWorker(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
-	logger.Info("worker started", "env", cfg.Env, "message", "no jobs registered yet")
+	pool, err := db.Open(ctx, dbConfig(cfg))
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	driver := riverpgxv5.New(pool)
+	migrator, err := rivermigrate.New(driver, nil)
+	if err != nil {
+		return fmt.Errorf("river migrator: %w", err)
+	}
+	if _, err := migrator.Migrate(ctx, rivermigrate.DirectionUp, nil); err != nil {
+		return fmt.Errorf("river migrate: %w", err)
+	}
+
+	workers := river.NewWorkers()
+	river.AddWorker(workers, jobs.NewCountryStatsJob(pool))
+
+	client, err := river.NewClient(driver, &river.Config{
+		Logger: logger,
+		Queues: map[string]river.QueueConfig{
+			river.QueueDefault: {MaxWorkers: 2},
+		},
+		Workers:      workers,
+		PeriodicJobs: []*river.PeriodicJob{jobs.CountryStatsPeriodicJob()},
+	})
+	if err != nil {
+		return fmt.Errorf("river client: %w", err)
+	}
+	if err := client.Start(ctx); err != nil {
+		return fmt.Errorf("river start: %w", err)
+	}
+	logger.Info("worker started", "env", cfg.Env, "jobs", "country-stats")
+
 	<-ctx.Done()
+
+	stopCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := client.Stop(stopCtx); err != nil {
+		logger.Warn("river stop", "error", err)
+	}
 	logger.Info("worker stopped")
 	return nil
 }

@@ -21,16 +21,18 @@ import (
 	"grumble/internal/domain"
 	"grumble/internal/domain/pain"
 	"grumble/internal/domain/taxonomy"
+	"grumble/internal/jobs"
 	"grumble/internal/scoring"
 	"grumble/internal/store/postgres"
 )
 
 type fixture struct {
-	pool   *pgxpool.Pool
-	pains  *postgres.Pains
-	votes  *postgres.Votes
-	tx     *postgres.TxManager
-	source string
+	pool      *pgxpool.Pool
+	pains     *postgres.Pains
+	votes     *postgres.Votes
+	bookmarks *postgres.Bookmarks
+	tx        *postgres.TxManager
+	source    string
 }
 
 func newFixture(t *testing.T) *fixture {
@@ -66,11 +68,12 @@ func newFixture(t *testing.T) *fixture {
 	t.Cleanup(pool.Close)
 
 	return &fixture{
-		pool:   pool,
-		pains:  postgres.NewPains(pool),
-		votes:  postgres.NewVotes(pool),
-		tx:     postgres.NewTxManager(pool),
-		source: "source-hash-0001",
+		pool:      pool,
+		pains:     postgres.NewPains(pool),
+		votes:     postgres.NewVotes(pool),
+		bookmarks: postgres.NewBookmarks(pool),
+		tx:        postgres.NewTxManager(pool),
+		source:    "source-hash-0001",
 	}
 }
 
@@ -158,6 +161,33 @@ func TestUnpublishedRowsNeverLeak(t *testing.T) {
 	}
 	if n, _ := f.pains.CountPublished(ctx); n != 1 {
 		t.Fatalf("published count = %d, want 1", n)
+	}
+}
+
+func TestPublishedStatsCountOnlyPublishedRows(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	id := f.seedPain(t, "countable-heating")
+	f.publish(t, id)
+	if err := f.castVote(ctx, id, "a:stat-voter"); err != nil {
+		t.Fatalf("cast vote: %v", err)
+	}
+	_ = f.seedPain(t, "pending-heating")
+
+	pains, err := f.pains.CountPublished(ctx)
+	if err != nil {
+		t.Fatalf("count published: %v", err)
+	}
+	countries, err := f.pains.CountCountries(ctx)
+	if err != nil {
+		t.Fatalf("count countries: %v", err)
+	}
+	votes, err := f.pains.CountVotes(ctx)
+	if err != nil {
+		t.Fatalf("count votes: %v", err)
+	}
+	if pains != 1 || countries != 1 || votes != 1 {
+		t.Fatalf("stats = %d pains / %d countries / %d votes, want 1/1/1", pains, countries, votes)
 	}
 }
 
@@ -309,5 +339,175 @@ func TestRecentFromSource(t *testing.T) {
 	}
 	if other {
 		t.Fatal("a different source hash must not match")
+	}
+}
+
+// TestCountryStatsRebuildIsIdempotentAndPublishedOnly covers FR-MAP-1: the read
+// model is rebuilt from published pains only, and running the job twice leaves
+// the same rows instead of duplicating or drifting.
+func TestCountryStatsRebuildIsIdempotentAndPublishedOnly(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+
+	published := f.seedPain(t, "published-in-gb")
+	f.publish(t, published)
+
+	// An unpublished pain in another country must never reach the read model.
+	unpublishedID := uuid.New()
+	tech, _ := taxonomy.CategoryBySlug("tech")
+	fr, _ := taxonomy.CountryByCode("FR")
+	if _, err := f.pains.Create(ctx, pain.New{
+		ID:       unpublishedID,
+		Slug:     "held-in-fr",
+		Body:     "A perfectly ordinary frustration that clears the minimum length.",
+		Category: tech,
+		Country:  fr,
+		Details: pain.Details{
+			Frequency:     pain.FrequencyDaily,
+			Disruption:    pain.DisruptionAnnoying,
+			WouldPay:      false,
+			MonthlyAmount: 0,
+		},
+		SourceHash:     "source-hash-0002",
+		ScoringVersion: scoring.Version,
+	}); err != nil {
+		t.Fatalf("create unpublished pain: %v", err)
+	}
+
+	if err := jobs.RebuildCountryStats(ctx, f.pool); err != nil {
+		t.Fatalf("rebuild: %v", err)
+	}
+
+	var allGB, housingGB int
+	if err := f.pool.QueryRow(ctx, `SELECT pain_count FROM country_stats WHERE country = 'GB' AND category = ''`).Scan(&allGB); err != nil {
+		t.Fatalf("read GB total: %v", err)
+	}
+	if err := f.pool.QueryRow(ctx, `SELECT pain_count FROM country_stats WHERE country = 'GB' AND category = 'housing'`).Scan(&housingGB); err != nil {
+		t.Fatalf("read GB housing: %v", err)
+	}
+	if allGB != 1 || housingGB != 1 {
+		t.Fatalf("GB counts = all:%d housing:%d, want 1 and 1", allGB, housingGB)
+	}
+
+	var frRows int
+	if err := f.pool.QueryRow(ctx, `SELECT count(*) FROM country_stats WHERE country = 'FR'`).Scan(&frRows); err != nil {
+		t.Fatalf("read FR rows: %v", err)
+	}
+	if frRows != 0 {
+		t.Fatalf("unpublished FR pain leaked into the read model: %d rows", frRows)
+	}
+
+	var before int
+	if err := f.pool.QueryRow(ctx, `SELECT count(*) FROM country_stats`).Scan(&before); err != nil {
+		t.Fatalf("count rows: %v", err)
+	}
+	if err := jobs.RebuildCountryStats(ctx, f.pool); err != nil {
+		t.Fatalf("second rebuild: %v", err)
+	}
+	var after int
+	if err := f.pool.QueryRow(ctx, `SELECT count(*) FROM country_stats`).Scan(&after); err != nil {
+		t.Fatalf("count rows again: %v", err)
+	}
+	if before != after {
+		t.Fatalf("rebuild is not idempotent: %d rows then %d", before, after)
+	}
+}
+
+func TestBookmarksArePrivatePublishedAndIdempotent(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	first := f.seedPain(t, "saved-heating")
+	second := f.seedPain(t, "saved-buses")
+	pending := f.seedPain(t, "saved-pending")
+	f.publish(t, first)
+	f.publish(t, second)
+
+	const owner = "a:bookmark-owner"
+	const other = "a:other-owner"
+
+	added, err := f.bookmarks.Add(ctx, owner, first)
+	if err != nil || !added {
+		t.Fatalf("first add = %v, %v", added, err)
+	}
+	added, err = f.bookmarks.Add(ctx, owner, first)
+	if err != nil || added {
+		t.Fatalf("repeat add = %v, %v, want false", added, err)
+	}
+	if added, err := f.bookmarks.Add(ctx, owner, pending); err != nil || added {
+		t.Fatalf("pending add = %v, %v, want false", added, err)
+	}
+
+	time.Sleep(2 * time.Millisecond)
+	if added, err := f.bookmarks.Add(ctx, owner, second); err != nil || !added {
+		t.Fatalf("second saved pain: %v, %v", added, err)
+	}
+
+	list, err := f.bookmarks.List(ctx, owner, 10)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(list) != 2 || list[0].ID != second {
+		t.Fatalf("list = %+v, want second newest first", list)
+	}
+	if n, err := f.bookmarks.Count(ctx, owner); err != nil || n != 2 {
+		t.Fatalf("count = %d, %v, want 2", n, err)
+	}
+	if list, err := f.bookmarks.List(ctx, other, 10); err != nil || len(list) != 0 {
+		t.Fatalf("other owner sees %d rows, %v", len(list), err)
+	}
+
+	// Unpublishing removes the row from every read and from the cap count, but
+	// never reveals it.
+	if err := f.pains.SetStatus(ctx, first, pain.StatusRejected); err != nil {
+		t.Fatalf("unpublish: %v", err)
+	}
+	ids, err := f.bookmarks.IDs(ctx, owner)
+	if err != nil || len(ids) != 1 || ids[0] != second {
+		t.Fatalf("ids after unpublish = %v, %v", ids, err)
+	}
+	if n, err := f.bookmarks.Count(ctx, owner); err != nil || n != 1 {
+		t.Fatalf("count after unpublish = %d, %v, want 1", n, err)
+	}
+
+	if err := f.bookmarks.Remove(ctx, owner, second); err != nil {
+		t.Fatalf("remove: %v", err)
+	}
+	if n, err := f.bookmarks.Count(ctx, owner); err != nil || n != 0 {
+		t.Fatalf("count after remove = %d, %v", n, err)
+	}
+}
+
+func TestTrendingWindowOnlyReadsPublishedRows(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	published := f.seedPain(t, "trending-heating")
+	f.publish(t, published)
+	f.seedPain(t, "trending-pending")
+
+	rows, err := f.pains.ListTrendingWindow(ctx, time.Now().Add(-24*time.Hour), 50)
+	if err != nil {
+		t.Fatalf("list trending: %v", err)
+	}
+	if len(rows) != 1 || rows[0].Pain.ID != published {
+		t.Fatalf("rows = %+v, want only the published pain", rows)
+	}
+	if rows[0].Votes7d != 0 {
+		t.Fatalf("votes window = %d, want 0", rows[0].Votes7d)
+	}
+
+	if err := f.castVote(ctx, published, "a:trend-voter"); err != nil {
+		t.Fatalf("cast vote: %v", err)
+	}
+	rows, err = f.pains.ListTrendingWindow(ctx, time.Now().Add(-24*time.Hour), 50)
+	if err != nil {
+		t.Fatalf("list trending after vote: %v", err)
+	}
+	if len(rows) != 1 || rows[0].Votes7d != 1 {
+		t.Fatalf("votes window after vote = %+v, want 1", rows)
+	}
+
+	cats, err := f.pains.ListTrendingCategoryCounts(ctx, time.Now().Add(-24*time.Hour), 8)
+	if err != nil || len(cats) != 1 || cats[0].Count != 1 {
+		t.Fatalf("categories = %+v, %v", cats, err)
 	}
 }
